@@ -27,6 +27,9 @@ All custom changes are marked in source code with `// KOSBLING-PATCH`.
   - `✦ Kosbling Edition ✦` under ASCII art
   - Single-line banner: `[Kosbling Edition]`
 
+- **Web UI branding badge** (`ui/src/ui/app-render.ts` + `ui/src/styles/layout.css`)
+  - Control dashboard sidebar keeps a visible `Kosbling Edition` marker on the new upstream UI shell
+
 - **CLI `--version` includes git commit hash** (`src/cli/program/context.ts`)
   - `openclaw -v` output format: `2026.3.13-kosbling.7 (dee8c1468e)`
 

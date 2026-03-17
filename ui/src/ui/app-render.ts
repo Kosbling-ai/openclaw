@@ -459,6 +459,7 @@ export function renderApp(state: AppViewState) {
                         <span class="sidebar-brand__copy">
                           <span class="sidebar-brand__eyebrow">${t("nav.control")}</span>
                           <span class="sidebar-brand__title">OpenClaw</span>
+                          <span class="sidebar-brand__edition">Kosbling Edition</span>
                         </span>
                       `
                 }

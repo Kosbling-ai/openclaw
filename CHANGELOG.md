@@ -12,6 +12,7 @@ Docs: https://docs.openclaw.ai
 - Upstream sync target advanced to `v2026.3.13-1`.
 - Docs/process: README and CHANGELOG are now maintained as fork-focused bilingual docs; each commit should evaluate and sync both language files when user-facing behavior changes.
 - Cron isolated sessions: when starting a fresh run (`forceNew`/stale reset), clear inherited `sessionFile` to avoid pointing new `sessionId` at an old transcript file.
+- Web UI: restored a visible `Kosbling Edition` badge in the control dashboard sidebar after the upstream shell refresh.
 
 ## 2026.3.8
 

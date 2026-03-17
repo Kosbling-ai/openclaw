@@ -26,6 +26,9 @@
 - **CLI Banner 品牌标识**（`src/cli/banner.ts`）
   - ASCII art 下方 `✦ Kosbling Edition ✦`，单行 banner `[Kosbling Edition]`
 
+- **Web UI 定制版标识**（`ui/src/ui/app-render.ts` + `ui/src/styles/layout.css`）
+  - 在上游新版控制台 UI 结构下，侧边栏继续保留可见的 `Kosbling Edition` 标记
+
 - **CLI `--version` 显示 git commit hash**（`src/cli/program/context.ts`）
   - `openclaw -v` 输出格式：`2026.3.13-kosbling.7 (dee8c1468e)`
 
