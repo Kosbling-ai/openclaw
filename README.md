@@ -8,7 +8,7 @@ A customized fork of [OpenClaw](https://github.com/openclaw/openclaw) for the [K
 
 - Upstream repository: `https://github.com/openclaw/openclaw.git`
 - Sync strategy: `git merge --no-ff` (preserve merge history)
-- Current baseline: `upstream/main` (synced 2026-03-09, includes `v2026.3.8`)
+- Current baseline: `upstream/main` (synced 2026-03-14, includes `v2026.3.13-1`)
 
 ## Custom Changes
 
@@ -28,7 +28,7 @@ All custom changes are marked in source code with `// KOSBLING-PATCH`.
   - Single-line banner: `[Kosbling Edition]`
 
 - **CLI `--version` includes git commit hash** (`src/cli/program/context.ts`)
-  - `openclaw -v` output format: `2026.3.3-kosbling.6 (34ada4a)`
+  - `openclaw -v` output format: `2026.3.13-kosbling.7 (dee8c1468e)`
 
 - **Update flow disabled** (`src/infra/update-startup.ts` + `src/cli/update-cli/update-command.ts` + `src/config/io.ts`)
   - `openclaw update` now guides users to `git pull`
@@ -200,7 +200,7 @@ All custom edits must include `// KOSBLING-PATCH` comments to simplify upstream 
 ### First Install (target machine)
 
 ```bash
-git clone https://github.com/kosbling-ai/openclaw.git ~/.openclaw-kosbling
+git clone https://github.com/Openbling-ai/openclaw.git ~/.openclaw-kosbling
 cd ~/.openclaw-kosbling
 ./build-and-link.sh
 ```
@@ -231,7 +231,7 @@ Then pull and build in your runtime repo (`~/.openclaw-kosbling`) to deploy.
 
 Version format: `{upstream_version}-kosbling.{patch}`
 
-Example: `2026.3.3-kosbling.6`
+Example: `2026.3.13-kosbling.7`
 
 Version is maintained in root `VERSION`. `build-and-link.sh` reads it and writes into `package.json` during build.
 
@@ -239,10 +239,10 @@ Version is maintained in root `VERSION`. `build-and-link.sh` reads it and writes
 
 ```bash
 # 1) Update VERSION
-echo "2026.3.3-kosbling.6" > VERSION
+echo "2026.3.13-kosbling.7" > VERSION
 
 # 2) Commit and push
-git add -A && git commit -m "release: v2026.3.3-kosbling.6"
+git add -A && git commit -m "release: v2026.3.13-kosbling.7"
 git push origin main
 ```
 

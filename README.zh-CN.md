@@ -8,7 +8,7 @@
 
 - 上游仓库：`https://github.com/openclaw/openclaw.git`
 - 同步方式：`git merge --no-ff` 保留合并记录
-- 当前基线：`upstream/main`（2026-03-09 已同步，包含 `v2026.3.8`）
+- 当前基线：`upstream/main`（2026-03-14 已同步，包含 `v2026.3.13-1`）
 
 ## 定制改动
 
@@ -27,7 +27,7 @@
   - ASCII art 下方 `✦ Kosbling Edition ✦`，单行 banner `[Kosbling Edition]`
 
 - **CLI `--version` 显示 git commit hash**（`src/cli/program/context.ts`）
-  - `openclaw -v` 输出格式：`2026.3.3-kosbling.6 (34ada4a)`
+  - `openclaw -v` 输出格式：`2026.3.13-kosbling.7 (dee8c1468e)`
 
 - **更新机制禁用**（`src/infra/update-startup.ts` + `src/cli/update-cli/update-command.ts` + `src/config/io.ts`）
   - `openclaw update` 提示用 git pull 方式
@@ -196,7 +196,7 @@ openclaw agents isolation-guardrail disable --agent <agent-id>
 ### 首次安装（目标机器）
 
 ```bash
-git clone https://github.com/kosbling-ai/openclaw.git ~/.openclaw-kosbling
+git clone https://github.com/Openbling-ai/openclaw.git ~/.openclaw-kosbling
 cd ~/.openclaw-kosbling
 ./build-and-link.sh
 ```
@@ -227,7 +227,7 @@ git push origin main         # 推送
 
 版本格式：`{upstream_version}-kosbling.{patch}`
 
-例如：`2026.3.3-kosbling.6`
+例如：`2026.3.13-kosbling.7`
 
 中文变更日志：[`CHANGELOG.zh-CN.md`](./CHANGELOG.zh-CN.md)
 
@@ -237,10 +237,10 @@ git push origin main         # 推送
 
 ```bash
 # 1. 更新 VERSION 文件
-echo "2026.3.3-kosbling.6" > VERSION
+echo "2026.3.13-kosbling.7" > VERSION
 
 # 2. 提交推送
-git add -A && git commit -m "release: v2026.3.3-kosbling.6"
+git add -A && git commit -m "release: v2026.3.13-kosbling.7"
 git push origin main
 ```
 
