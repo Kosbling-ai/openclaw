@@ -5,6 +5,8 @@ import {
   normalizeModelValue,
   parseFallbackList,
   resolveAgentConfig,
+  resolveIsolationAgentOverrideModel,
+  resolveIsolationGroupOptions,
   resolveModelFallbacks,
   resolveModelLabel,
   resolveModelPrimary,
@@ -47,29 +49,56 @@ export function renderAgentOverview(params: {
     agentFilesList && agentFilesList.agentId === agent.id ? agentFilesList.workspace : null;
   const workspace =
     workspaceFromFiles || config.entry?.workspace || config.defaults?.workspace || "default";
-  const model = config.entry?.model
-    ? resolveModelLabel(config.entry?.model)
-    : resolveModelLabel(config.defaults?.model);
   const defaultModel = resolveModelLabel(config.defaults?.model);
   const entryPrimary = resolveModelPrimary(config.entry?.model);
   const defaultPrimary =
     resolveModelPrimary(config.defaults?.model) ||
     (defaultModel !== "-" ? normalizeModelValue(defaultModel) : null);
   const effectivePrimary = entryPrimary ?? defaultPrimary ?? null;
-  const modelFallbacks = resolveModelFallbacks(config.entry?.model);
+  const isolation = resolveIsolationGroupOptions(
+    configForm,
+    "main",
+    resolveIsolationAgentOverrideModel(configForm, agent.id),
+  );
+  const model = isolation.enabled
+    ? resolveModelLabel({
+        primary:
+          resolveIsolationAgentOverrideModel(configForm, agent.id) ??
+          isolation.primary ??
+          undefined,
+        fallbacks: isolation.fallbacks,
+      })
+    : config.entry?.model
+      ? resolveModelLabel(config.entry?.model)
+      : resolveModelLabel(config.defaults?.model);
+  const modelFallbacks = isolation.enabled
+    ? isolation.fallbacks
+    : resolveModelFallbacks(config.entry?.model);
   const fallbackChips = modelFallbacks ?? [];
   const skillFilter = Array.isArray(config.entry?.skills) ? config.entry?.skills : null;
   const skillCount = skillFilter?.length ?? null;
   const isDefault = Boolean(params.defaultId && agent.id === params.defaultId);
   const disabled = !configForm || configLoading || configSaving;
+  const selectedPrimary = isolation.enabled
+    ? (resolveIsolationAgentOverrideModel(configForm, agent.id) ?? isolation.primary ?? "")
+    : isDefault
+      ? (effectivePrimary ?? "")
+      : (entryPrimary ?? "");
+  const standardModelOptions = buildModelOptions(configForm, effectivePrimary ?? undefined);
 
   const removeChip = (index: number) => {
+    if (isolation.enabled) {
+      return;
+    }
     const next = fallbackChips.filter((_, i) => i !== index);
     onModelFallbacksChange(agent.id, next);
   };
 
   const handleChipKeydown = (e: KeyboardEvent) => {
     const input = e.target as HTMLInputElement;
+    if (isolation.enabled) {
+      return;
+    }
     if (e.key === "Enter" || e.key === ",") {
       e.preventDefault();
       const parsed = parseFallbackList(input.value);
@@ -121,25 +150,34 @@ export function renderAgentOverview(params: {
           <label class="field">
             <span>Primary model${isDefault ? " (default)" : ""}</span>
             <select
-              .value=${isDefault ? (effectivePrimary ?? "") : (entryPrimary ?? "")}
+              .value=${selectedPrimary}
               ?disabled=${disabled}
               @change=${(e: Event) =>
                 onModelChange(agent.id, (e.target as HTMLSelectElement).value || null)}
             >
               ${
-                isDefault
-                  ? nothing
-                  : html`
-                      <option value="">
-                        ${defaultPrimary ? `Inherit default (${defaultPrimary})` : "Inherit default"}
-                      </option>
-                    `
+                isolation.enabled
+                  ? [
+                      html`<option value="">
+                      ${isolation.primary ? `Use group default (${isolation.primary})` : "Use group default"}
+                    </option>`,
+                      ...isolation.options.map(
+                        (option) => html`<option value=${option.value}>${option.label}</option>`,
+                      ),
+                    ]
+                  : [
+                      isDefault
+                        ? nothing
+                        : html`<option value="">
+                          ${defaultPrimary ? `Inherit default (${defaultPrimary})` : "Inherit default"}
+                        </option>`,
+                    ]
               }
-              ${buildModelOptions(configForm, effectivePrimary ?? undefined)}
+              ${!isolation.enabled ? standardModelOptions : nothing}
             </select>
           </label>
           <div class="field">
-            <span>Fallbacks</span>
+            <span>Fallbacks${isolation.enabled ? ` (${isolation.group} group)` : ""}</span>
             <div class="agent-chip-input" @click=${(e: Event) => {
               const container = e.currentTarget as HTMLElement;
               const input = container.querySelector("input");
@@ -154,17 +192,26 @@ export function renderAgentOverview(params: {
                     <button
                       type="button"
                       class="chip-remove"
-                      ?disabled=${disabled}
+                      ?disabled=${disabled || isolation.enabled}
                       @click=${() => removeChip(i)}
                     >&times;</button>
                   </span>
                 `,
               )}
               <input
-                ?disabled=${disabled}
-                placeholder=${fallbackChips.length === 0 ? "provider/model" : ""}
+                ?disabled=${disabled || isolation.enabled}
+                placeholder=${
+                  isolation.enabled
+                    ? "Managed by isolation group"
+                    : fallbackChips.length === 0
+                      ? "provider/model"
+                      : ""
+                }
                 @keydown=${handleChipKeydown}
                 @blur=${(e: Event) => {
+                  if (isolation.enabled) {
+                    return;
+                  }
                   const input = e.target as HTMLInputElement;
                   const parsed = parseFallbackList(input.value);
                   if (parsed.length > 0) {
@@ -174,6 +221,13 @@ export function renderAgentOverview(params: {
                 }}
               />
             </div>
+            ${
+              isolation.enabled
+                ? html`<div class="muted" style="margin-top: 6px;">
+                    Model options and fallback order follow the isolation ${isolation.group} group.
+                  </div>`
+                : nothing
+            }
           </div>
         </div>
         <div class="agent-model-actions">

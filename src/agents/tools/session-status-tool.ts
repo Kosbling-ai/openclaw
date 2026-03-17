@@ -149,15 +149,6 @@ async function resolveModelOverride(params: {
     cfg: params.cfg,
     defaultProvider: currentProvider,
   });
-  const catalog = await loadModelCatalog({ config: params.cfg });
-  const allowed = buildAllowedModelSet({
-    cfg: params.cfg,
-    catalog,
-    defaultProvider: currentProvider,
-    defaultModel: currentModel,
-    agentId: params.agentId,
-  });
-
   const resolved = resolveModelRefFromString({
     raw,
     defaultProvider: currentProvider,
@@ -167,9 +158,6 @@ async function resolveModelOverride(params: {
     throw new Error(`Unrecognized model "${raw}".`);
   }
   const key = modelKey(resolved.ref.provider, resolved.ref.model);
-  if (allowed.allowedKeys.size > 0 && !allowed.allowedKeys.has(key)) {
-    throw new Error(`Model "${key}" is not allowed.`);
-  }
   const normalized = normalizeIsolationModelRef({
     cfg: params.cfg,
     sessionKey: params.sessionKey,
@@ -182,6 +170,20 @@ async function resolveModelOverride(params: {
   const normalizedProvider =
     normalized && normalized.ok ? normalized.provider : resolved.ref.provider;
   const normalizedModel = normalized && normalized.ok ? normalized.model : resolved.ref.model;
+  if (!isModelIsolationEnabled(params.cfg)) {
+    const catalog = await loadModelCatalog({ config: params.cfg });
+    const allowed = buildAllowedModelSet({
+      cfg: params.cfg,
+      catalog,
+      defaultProvider: currentProvider,
+      defaultModel: currentModel,
+      agentId: params.agentId,
+    });
+    const normalizedKey = modelKey(normalizedProvider, normalizedModel);
+    if (allowed.allowedKeys.size > 0 && !allowed.allowedKeys.has(normalizedKey)) {
+      throw new Error(`Model "${normalizedKey}" is not allowed.`);
+    }
+  }
   const isDefault =
     normalizedProvider === configDefault.provider && normalizedModel === configDefault.model;
   return {

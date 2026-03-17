@@ -178,6 +178,12 @@ type ConfigSnapshot = {
     defaults?: { workspace?: string; model?: unknown; models?: Record<string, { alias?: string }> };
     list?: AgentConfigEntry[];
   };
+  modelIsolation?: {
+    enabled?: boolean;
+    main?: { model?: string; fallbacks?: string[] };
+    secondary?: { model?: string; fallbacks?: string[] };
+    agents?: Record<string, { model?: string }>;
+  };
   tools?: {
     profile?: string;
     allow?: string[];
@@ -502,6 +508,10 @@ export function sortLocaleStrings(values: Iterable<string>): string[] {
 export function resolveConfiguredCronModelSuggestions(
   configForm: Record<string, unknown> | null,
 ): string[] {
+  const isolationSecondary = resolveIsolationGroupOptions(configForm, "secondary");
+  if (isolationSecondary.enabled) {
+    return isolationSecondary.options.map((option) => option.value);
+  }
   if (!configForm || typeof configForm !== "object") {
     return [];
   }
@@ -544,6 +554,97 @@ type ConfiguredModelOption = {
   value: string;
   label: string;
 };
+
+export type IsolationGroupName = "main" | "secondary";
+
+type IsolationGroupOptionsResult = {
+  enabled: boolean;
+  group: IsolationGroupName;
+  primary: string | null;
+  fallbacks: string[];
+  options: ConfiguredModelOption[];
+  current: string | null;
+};
+
+function resolveModelAliasMap(configForm: Record<string, unknown> | null): Map<string, string> {
+  const cfg = configForm as ConfigSnapshot | null;
+  const models = cfg?.agents?.defaults?.models;
+  const aliases = new Map<string, string>();
+  if (!models || typeof models !== "object") {
+    return aliases;
+  }
+  for (const [modelId, raw] of Object.entries(models)) {
+    const trimmed = modelId.trim();
+    if (!trimmed || !raw || typeof raw !== "object") {
+      continue;
+    }
+    const alias =
+      typeof (raw as { alias?: unknown }).alias === "string"
+        ? (raw as { alias?: string }).alias?.trim()
+        : "";
+    if (alias) {
+      aliases.set(trimmed, alias);
+    }
+  }
+  return aliases;
+}
+
+function buildLabeledIsolationOption(
+  value: string,
+  aliases: Map<string, string>,
+): ConfiguredModelOption {
+  const alias = aliases.get(value);
+  return {
+    value,
+    label: alias && alias !== value ? `${alias} (${value})` : value,
+  };
+}
+
+export function resolveIsolationGroupOptions(
+  configForm: Record<string, unknown> | null,
+  group: IsolationGroupName,
+  current?: string | null,
+): IsolationGroupOptionsResult {
+  const cfg = configForm as ConfigSnapshot | null;
+  const isolation = cfg?.modelIsolation;
+  const groupCfg = group === "secondary" ? isolation?.secondary : isolation?.main;
+  const primary = typeof groupCfg?.model === "string" ? groupCfg.model.trim() || null : null;
+  const fallbacks = Array.isArray(groupCfg?.fallbacks)
+    ? groupCfg.fallbacks.map((entry) => String(entry).trim()).filter(Boolean)
+    : [];
+  const aliases = resolveModelAliasMap(configForm);
+  const seen = new Set<string>();
+  const options: ConfiguredModelOption[] = [];
+  for (const value of [primary, ...fallbacks, current ?? null]) {
+    const trimmed = typeof value === "string" ? value.trim() : "";
+    if (!trimmed) {
+      continue;
+    }
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    options.push(buildLabeledIsolationOption(trimmed, aliases));
+  }
+  return {
+    enabled: isolation?.enabled === true && Boolean(primary),
+    group,
+    primary,
+    fallbacks,
+    options,
+    current: current?.trim() || null,
+  };
+}
+
+export function resolveIsolationAgentOverrideModel(
+  configForm: Record<string, unknown> | null,
+  agentId: string,
+): string | null {
+  const cfg = configForm as ConfigSnapshot | null;
+  const value = cfg?.modelIsolation?.agents?.[agentId]?.model;
+  return typeof value === "string" ? value.trim() || null : null;
+}
 
 function resolveConfiguredModels(
   configForm: Record<string, unknown> | null,

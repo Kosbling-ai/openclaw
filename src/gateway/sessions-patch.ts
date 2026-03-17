@@ -523,12 +523,8 @@ export async function applySessionsPatchToStore(params: {
   }
 
   if (next.thinkingLevel === "xhigh") {
-    const effectiveProvider = isolationEnabled
-      ? resolvedDefault.provider
-      : (next.providerOverride ?? resolvedDefault.provider);
-    const effectiveModel = isolationEnabled
-      ? resolvedDefault.model
-      : (next.modelOverride ?? resolvedDefault.model);
+    const effectiveProvider = next.providerOverride ?? resolvedDefault.provider;
+    const effectiveModel = next.modelOverride ?? resolvedDefault.model;
     if (!supportsXHighThinking(effectiveProvider, effectiveModel)) {
       if ("thinkingLevel" in patch) {
         return invalid(`thinkingLevel "xhigh" is only supported for ${formatXHighModelHint()}`);

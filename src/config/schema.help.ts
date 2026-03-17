@@ -802,7 +802,8 @@ export const FIELD_HELP: Record<string, string> = {
   "agents.defaults.envelopeTimestamp":
     'Include absolute timestamps in message envelopes ("on" or "off").',
   "agents.defaults.envelopeElapsed": 'Include elapsed time in message envelopes ("on" or "off").',
-  "agents.defaults.models": "Configured model catalog (keys are full provider/model IDs).",
+  "agents.defaults.models":
+    "Configured model catalog and alias map (keys are full provider/model IDs). This remains the source of model metadata, aliases, and general allowlist entries even when modelIsolation is enabled.",
   "agents.defaults.memorySearch":
     "Vector search over MEMORY.md and memory/*.md (per-agent overrides supported).",
   "agents.defaults.memorySearch.enabled":
@@ -1017,9 +1018,10 @@ export const FIELD_HELP: Record<string, string> = {
   "plugins.installs.*.installedAt": "ISO timestamp of last install/update.",
   "agents.list.*.identity.avatar":
     "Agent avatar (workspace-relative path, http(s) URL, or data URI).",
-  "agents.defaults.model.primary": "Primary model (provider/model).",
+  "agents.defaults.model.primary":
+    "Default primary model (provider/model) for non-isolated flows. When modelIsolation.enabled=true, runtime main/secondary agent selection comes from modelIsolation instead of this field.",
   "agents.defaults.model.fallbacks":
-    "Ordered fallback models (provider/model). Used when the primary model fails.",
+    "Ordered fallback models (provider/model) for the default non-isolated model path. When modelIsolation.enabled=true, runtime fallback order is taken from modelIsolation.main/secondary.fallbacks.",
   "agents.defaults.imageModel.primary":
     "Optional image model (provider/model) used when the primary model lacks image input.",
   "agents.defaults.imageModel.fallbacks": "Ordered fallback image models (provider/model).",

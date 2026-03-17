@@ -472,4 +472,37 @@ describe("gateway sessions patch", () => {
     expect(res.entry.providerOverride).toBeUndefined();
     expect(res.entry.modelOverride).toBeUndefined();
   });
+
+  test("keeps xhigh when the isolated in-group override supports it", async () => {
+    const key = "agent:main:main";
+    const res = await applySessionsPatchToStore({
+      cfg: {
+        modelIsolation: {
+          enabled: true,
+          main: {
+            model: "openai/gpt-5-mini",
+            fallbacks: ["openai/gpt-5.2"],
+          },
+          secondary: { model: "openai/gpt-5-mini" },
+        },
+      } as OpenClawConfig,
+      store: {
+        [key]: {
+          sessionId: "sess",
+          updatedAt: 1,
+          providerOverride: "openai",
+          modelOverride: "gpt-5.2",
+          thinkingLevel: "xhigh",
+        } as SessionEntry,
+      },
+      storeKey: key,
+      patch: { key, fastMode: true },
+    });
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) {
+      return;
+    }
+    expect(res.entry.thinkingLevel).toBe("xhigh");
+  });
 });

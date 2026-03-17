@@ -129,8 +129,9 @@ Behavior summary:
 - `enabled: false` or missing: upstream behavior, no impact
 - `enabled: true`: `main` group handles primary agent conversations (DM/group/TUI/webchat), `secondary` group handles cron/subagents
 - Groups are fully isolated, fallback does not cross groups, and full failure surfaces as error
-- `/model` is intercepted; spawn/cron model overrides are rejected with explicit errors
+- All model choice surfaces follow the active isolation group. Group-in models apply normally; group-out models are normalized back to the group's default model.
 - Session model overrides (`/model`) are persisted per session; under `modelIsolation`, requested models are normalized to the active group allowlist.
+- Fallback order also follows the active isolation group (`main` vs `secondary`).
 - `/status` shows session-specific override status while keeping the group baseline on the `Edition` line.
 
 For custom provider merge behavior (`openclaw.json` vs per-agent `models.json`), see [Models registry](https://docs.openclaw.ai/concepts/models#models-registry-modelsjson).

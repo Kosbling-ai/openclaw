@@ -10,6 +10,7 @@ import {
   capArrayByJsonBytes,
   classifySessionKey,
   deriveSessionTitle,
+  getSessionDefaults,
   listAgentsForGateway,
   listSessionsFromStore,
   loadCombinedSessionStoreForGateway,
@@ -396,6 +397,22 @@ describe("gateway session utils", () => {
 });
 
 describe("resolveSessionModelRef", () => {
+  test("uses isolation-aware defaults for gateway session defaults", () => {
+    const cfg = {
+      session: { mainKey: "main" },
+      modelIsolation: {
+        enabled: true,
+        main: { model: "anthropic/claude-sonnet-4-6" },
+        secondary: { model: "openai/gpt-5-mini" },
+      },
+    } as OpenClawConfig;
+
+    expect(getSessionDefaults(cfg)).toMatchObject({
+      modelProvider: "anthropic",
+      model: "claude-sonnet-4-6",
+    });
+  });
+
   test("prefers runtime model/provider from session entry", () => {
     const cfg = createModelDefaultsConfig({
       primary: "anthropic/claude-opus-4-6",
@@ -443,6 +460,50 @@ describe("resolveSessionModelRef", () => {
     });
 
     expect(resolved).toEqual({ provider: "openai-codex", model: "gpt-5.3-codex" });
+  });
+
+  test("uses isolation main-group model when no runtime model is recorded", () => {
+    const cfg = {
+      modelIsolation: {
+        enabled: true,
+        main: { model: "anthropic/claude-opus-4-6" },
+        secondary: { model: "openai/gpt-5-mini" },
+      },
+    } as OpenClawConfig;
+
+    const resolved = resolveSessionModelRef(
+      cfg,
+      {
+        sessionId: "s-main",
+        updatedAt: Date.now(),
+      },
+      "main",
+      "agent:main:main",
+    );
+
+    expect(resolved).toEqual({ provider: "anthropic", model: "claude-opus-4-6" });
+  });
+
+  test("uses isolation secondary-group model for subagent sessions without runtime state", () => {
+    const cfg = {
+      modelIsolation: {
+        enabled: true,
+        main: { model: "anthropic/claude-opus-4-6" },
+        secondary: { model: "openai/gpt-5-mini" },
+      },
+    } as OpenClawConfig;
+
+    const resolved = resolveSessionModelRef(
+      cfg,
+      {
+        sessionId: "s-sub",
+        updatedAt: Date.now(),
+      },
+      "main",
+      "agent:main:subagent:child",
+    );
+
+    expect(resolved).toEqual({ provider: "openai", model: "gpt-5-mini" });
   });
 
   test("falls back to resolved provider for unprefixed legacy runtime model", () => {

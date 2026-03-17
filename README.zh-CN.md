@@ -127,8 +127,9 @@
 - `enabled: false` 或不存在 → 走官方原版逻辑，零影响
 - `enabled: true` → main 组用于主 agent 对话（DM/群聊/TUI/webchat），secondary 组用于 cron/subagent
 - 两组完全隔离，fallback 不穿透，全挂则报错
-- `/model` 命令被拦截，spawn/cron 的 model 指定被拒绝并返回错误信息
+- 所有模型选择入口都会按当前隔离组处理。组内模型按常规生效；组外模型会被归一化回该组默认模型
 - 会话级 `/model` 覆写会持久化；在 `modelIsolation` 下，请求模型会被归一化到当前组 allowlist。
+- fallback 顺序也跟随当前隔离组（`main` / `secondary`）。
 - `/status` 会显示会话级 model override，同时保留 Edition 行上的组基线。
 
 关于自定义 provider merge 行为（`openclaw.json` vs 每 agent 的 `models.json`），参见 [Models registry](https://docs.openclaw.ai/concepts/models#models-registry-modelsjson)。

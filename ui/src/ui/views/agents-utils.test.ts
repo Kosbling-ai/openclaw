@@ -4,6 +4,8 @@ import {
   resolveConfiguredCronModelSuggestions,
   resolveAgentAvatarUrl,
   resolveEffectiveModelFallbacks,
+  resolveIsolationAgentOverrideModel,
+  resolveIsolationGroupOptions,
   sortLocaleStrings,
 } from "./agents-utils.ts";
 
@@ -48,6 +50,29 @@ describe("resolveEffectiveModelFallbacks", () => {
 });
 
 describe("resolveConfiguredCronModelSuggestions", () => {
+  it("prefers isolation secondary-group suggestions when model isolation is enabled", () => {
+    const result = resolveConfiguredCronModelSuggestions({
+      modelIsolation: {
+        enabled: true,
+        main: { model: "openai/gpt-5.2", fallbacks: ["openai/gpt-5.2-mini"] },
+        secondary: {
+          model: "anthropic/claude-sonnet-4-6",
+          fallbacks: ["anthropic/claude-haiku-4.5"],
+        },
+      },
+      agents: {
+        defaults: {
+          models: {
+            "anthropic/claude-sonnet-4-6": { alias: "smart" },
+            "anthropic/claude-haiku-4.5": { alias: "fast" },
+          },
+        },
+      },
+    });
+
+    expect(result).toEqual(["anthropic/claude-sonnet-4-6", "anthropic/claude-haiku-4.5"]);
+  });
+
   it("collects defaults primary/fallbacks, alias map keys, and per-agent model entries", () => {
     const result = resolveConfiguredCronModelSuggestions({
       agents: {
@@ -129,5 +154,52 @@ describe("resolveAgentAvatarUrl", () => {
   it("returns null for initials or emoji avatar values without a URL", () => {
     expect(resolveAgentAvatarUrl({ identity: { avatar: "A" } })).toBeNull();
     expect(resolveAgentAvatarUrl({ identity: { avatar: "🦞" } })).toBeNull();
+  });
+});
+
+describe("model isolation helpers", () => {
+  it("reads per-agent isolation overrides", () => {
+    expect(
+      resolveIsolationAgentOverrideModel(
+        {
+          modelIsolation: {
+            enabled: true,
+            agents: {
+              writer: { model: "anthropic/claude-sonnet-4-6" },
+            },
+          },
+        },
+        "writer",
+      ),
+    ).toBe("anthropic/claude-sonnet-4-6");
+  });
+
+  it("builds isolation-group model options in group order", () => {
+    const result = resolveIsolationGroupOptions(
+      {
+        modelIsolation: {
+          enabled: true,
+          main: {
+            model: "anthropic/claude-sonnet-4-6",
+            fallbacks: ["anthropic/claude-haiku-4.5"],
+          },
+        },
+        agents: {
+          defaults: {
+            models: {
+              "anthropic/claude-sonnet-4-6": { alias: "smart" },
+              "anthropic/claude-haiku-4.5": { alias: "fast" },
+            },
+          },
+        },
+      },
+      "main",
+    );
+
+    expect(result.enabled).toBe(true);
+    expect(result.options).toEqual([
+      { value: "anthropic/claude-sonnet-4-6", label: "smart (anthropic/claude-sonnet-4-6)" },
+      { value: "anthropic/claude-haiku-4.5", label: "fast (anthropic/claude-haiku-4.5)" },
+    ]);
   });
 });

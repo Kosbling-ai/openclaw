@@ -88,6 +88,8 @@ import {
   resolveAgentConfig,
   resolveConfiguredCronModelSuggestions,
   resolveEffectiveModelFallbacks,
+  resolveIsolationAgentOverrideModel,
+  resolveIsolationGroupOptions,
   resolveModelPrimary,
   sortLocaleStrings,
 } from "./views/agents-utils.ts";
@@ -1148,13 +1150,27 @@ export function renderApp(state: AppViewState) {
                     updateConfigFormValue(state, ["agents", "list", index, "skills"], []);
                   },
                   onModelChange: (agentId, modelId) => {
+                    const currentConfig = getCurrentConfigValue();
+                    const isolation = resolveIsolationGroupOptions(
+                      currentConfig,
+                      "main",
+                      resolveIsolationAgentOverrideModel(currentConfig, agentId),
+                    );
+                    if (isolation.enabled) {
+                      const isolationPath = ["modelIsolation", "agents", agentId, "model"];
+                      if (!modelId || modelId === isolation.primary) {
+                        removeConfigFormValue(state, isolationPath);
+                      } else {
+                        updateConfigFormValue(state, isolationPath, modelId);
+                      }
+                      return;
+                    }
                     const index = modelId ? ensureAgentIndex(agentId) : findAgentIndex(agentId);
                     if (index < 0) {
                       return;
                     }
-                    const list = (
-                      getCurrentConfigValue() as { agents?: { list?: unknown[] } } | null
-                    )?.agents?.list;
+                    const list = (currentConfig as { agents?: { list?: unknown[] } } | null)?.agents
+                      ?.list;
                     const basePath = ["agents", "list", index, "model"];
                     if (!modelId) {
                       removeConfigFormValue(state, basePath);

@@ -13,6 +13,7 @@ import { iconForTab, pathForTab, titleForTab, type Tab } from "./navigation.ts";
 import type { ThemeTransitionContext } from "./theme-transition.ts";
 import type { ThemeMode, ThemeName } from "./theme.ts";
 import type { ModelCatalogEntry, SessionsListResult } from "./types.ts";
+import { resolveIsolationGroupOptions } from "./views/agents-utils.ts";
 
 type SessionDefaultsSnapshot = {
   mainSessionKey?: string;
@@ -346,15 +347,44 @@ function resolveModelOverrideValue(state: AppViewState): string {
 }
 
 function resolveDefaultModelValue(state: AppViewState): string {
+  const parsed = parseAgentSessionKey(state.sessionKey);
+  const isSecondary =
+    state.sessionKey.includes(":subagent:") ||
+    state.sessionKey.includes(":cron:") ||
+    parsed?.rest?.includes(":subagent:") ||
+    parsed?.rest?.includes(":cron:");
+  const isolation = resolveIsolationGroupOptions(
+    state.configForm,
+    isSecondary ? "secondary" : "main",
+  );
+  if (isolation.enabled && isolation.primary) {
+    return isolation.primary;
+  }
   const model = state.sessionsResult?.defaults?.model;
   return typeof model === "string" ? model.trim() : "";
 }
 
 function buildChatModelOptions(
+  state: AppViewState,
   catalog: ModelCatalogEntry[],
   currentOverride: string,
   defaultModel: string,
 ): Array<{ value: string; label: string }> {
+  const parsed = parseAgentSessionKey(state.sessionKey);
+  const isSecondary =
+    state.sessionKey.includes(":subagent:") ||
+    state.sessionKey.includes(":cron:") ||
+    parsed?.rest?.includes(":subagent:") ||
+    parsed?.rest?.includes(":cron:");
+  const group = isSecondary ? "secondary" : "main";
+  const isolation = resolveIsolationGroupOptions(
+    state.configForm,
+    group,
+    currentOverride || defaultModel,
+  );
+  if (isolation.enabled) {
+    return isolation.options;
+  }
   const seen = new Set<string>();
   const options: Array<{ value: string; label: string }> = [];
   const addOption = (value: string, label?: string) => {
@@ -388,6 +418,7 @@ function renderChatModelSelect(state: AppViewState) {
   const currentOverride = resolveModelOverrideValue(state);
   const defaultModel = resolveDefaultModelValue(state);
   const options = buildChatModelOptions(
+    state,
     state.chatModelCatalog ?? [],
     currentOverride,
     defaultModel,

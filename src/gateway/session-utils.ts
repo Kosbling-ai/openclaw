@@ -3,12 +3,12 @@ import path from "node:path";
 import { resolveAgentWorkspaceDir, resolveDefaultAgentId } from "../agents/agent-scope.js";
 import { lookupContextTokens } from "../agents/context.js";
 import { DEFAULT_CONTEXT_TOKENS, DEFAULT_MODEL, DEFAULT_PROVIDER } from "../agents/defaults.js";
+import { resolveIsolationAwareModelSelection } from "../agents/edition-isolation.js";
 import { listActiveGuardrailTriggeredSessionsByAgentSync } from "../agents/model-isolation-guardrail.js";
 import {
   inferUniqueProviderFromConfiguredModels,
   parseModelRef,
   resolveConfiguredModelRef,
-  resolveDefaultModelForAgent,
 } from "../agents/model-selection.js";
 import { type OpenClawConfig, loadConfig } from "../config/config.js";
 import { resolveStateDir } from "../config/paths.js";
@@ -737,10 +737,11 @@ export function loadCombinedSessionStoreForGateway(cfg: OpenClawConfig): {
 }
 
 export function getSessionDefaults(cfg: OpenClawConfig): GatewaySessionsDefaults {
-  const resolved = resolveConfiguredModelRef({
+  const defaultAgentId = normalizeAgentId(resolveDefaultAgentId(cfg));
+  const resolved = resolveIsolationAwareModelSelection({
     cfg,
-    defaultProvider: DEFAULT_PROVIDER,
-    defaultModel: DEFAULT_MODEL,
+    sessionKey: resolveMainSessionKey(cfg),
+    agentId: defaultAgentId,
   });
   const contextTokens =
     cfg.agents?.defaults?.contextTokens ??
@@ -759,14 +760,25 @@ export function resolveSessionModelRef(
     | SessionEntry
     | Pick<SessionEntry, "model" | "modelProvider" | "modelOverride" | "providerOverride">,
   agentId?: string,
+  sessionKey?: string,
 ): { provider: string; model: string } {
-  const resolved = agentId
-    ? resolveDefaultModelForAgent({ cfg, agentId })
-    : resolveConfiguredModelRef({
-        cfg,
-        defaultProvider: DEFAULT_PROVIDER,
-        defaultModel: DEFAULT_MODEL,
-      });
+  const normalizedAgentId = agentId ? normalizeAgentId(agentId) : undefined;
+  const resolved =
+    normalizedAgentId || sessionKey
+      ? resolveIsolationAwareModelSelection({
+          cfg,
+          sessionKey:
+            sessionKey ??
+            (normalizedAgentId
+              ? resolveAgentMainSessionKey({ cfg, agentId: normalizedAgentId })
+              : undefined),
+          agentId: normalizedAgentId,
+        })
+      : resolveConfiguredModelRef({
+          cfg,
+          defaultProvider: DEFAULT_PROVIDER,
+          defaultModel: DEFAULT_MODEL,
+        });
 
   // Prefer the last runtime model recorded on the session entry.
   // This is the actual model used by the latest run and must win over defaults.

@@ -214,7 +214,7 @@ export const sessionsHandlers: GatewayRequestHandlers = {
     }
     const parsed = parseAgentSessionKey(target.canonicalKey ?? key);
     const agentId = normalizeAgentId(parsed?.agentId ?? resolveDefaultAgentId(cfg));
-    const resolved = resolveSessionModelRef(cfg, applied.entry, agentId);
+    const resolved = resolveSessionModelRef(cfg, applied.entry, agentId, target.canonicalKey);
     const result: SessionsPatchResult = {
       ok: true,
       path: storePath,

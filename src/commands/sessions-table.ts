@@ -89,7 +89,12 @@ export function resolveSessionDisplayModel(
   >,
   defaults: SessionDisplayDefaults,
 ): string {
-  const resolved = resolveSessionModelRef(cfg, row, parseAgentSessionKey(row.key)?.agentId);
+  const resolved = resolveSessionModelRef(
+    cfg,
+    row,
+    parseAgentSessionKey(row.key)?.agentId,
+    row.key,
+  );
   return resolved.model ?? defaults.model;
 }
 
