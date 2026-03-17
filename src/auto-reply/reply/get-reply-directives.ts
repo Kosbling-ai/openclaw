@@ -1,5 +1,6 @@
 import type { ExecToolDefaults } from "../../agents/bash-tools.js";
 import { isModelIsolationEnabled } from "../../agents/edition-isolation.js";
+import { resolveFastModeState } from "../../agents/fast-mode.js";
 import type { ModelAliasIndex } from "../../agents/model-selection.js";
 import { resolveSandboxRuntimeStatus } from "../../agents/sandbox.js";
 import type { SkillCommandSpec } from "../../agents/skills.js";
@@ -38,6 +39,7 @@ export type ReplyDirectiveContinuation = {
   elevatedFailures: Array<{ gate: string; key: string }>;
   defaultActivation: ReturnType<typeof defaultGroupActivation>;
   resolvedThinkLevel: ThinkLevel | undefined;
+  resolvedFastMode: boolean;
   resolvedVerboseLevel: VerboseLevel | undefined;
   resolvedReasoningLevel: ReasoningLevel;
   resolvedElevatedLevel: ElevatedLevel;
@@ -230,6 +232,7 @@ export async function resolveReplyDirectives(params: {
   const hasInlineDirective =
     parsedDirectives.hasThinkDirective ||
     parsedDirectives.hasVerboseDirective ||
+    parsedDirectives.hasFastDirective ||
     parsedDirectives.hasReasoningDirective ||
     parsedDirectives.hasElevatedDirective ||
     parsedDirectives.hasExecDirective ||
@@ -262,6 +265,7 @@ export async function resolveReplyDirectives(params: {
         ...parsedDirectives,
         hasThinkDirective: false,
         hasVerboseDirective: false,
+        hasFastDirective: false,
         hasReasoningDirective: false,
         hasStatusDirective: false,
         hasModelDirective: false,
@@ -342,6 +346,14 @@ export async function resolveReplyDirectives(params: {
   const defaultActivation = defaultGroupActivation(requireMention);
   const resolvedThinkLevel =
     directives.thinkLevel ?? (sessionEntry?.thinkingLevel as ThinkLevel | undefined);
+  const resolvedFastMode =
+    directives.fastMode ??
+    resolveFastModeState({
+      cfg,
+      provider,
+      model,
+      sessionEntry,
+    }).enabled;
 
   const resolvedVerboseLevel =
     directives.verboseLevel ??
@@ -375,6 +387,7 @@ export async function resolveReplyDirectives(params: {
 
   const modelState = await createModelSelectionState({
     cfg,
+    agentId,
     agentCfg,
     sessionEntry,
     sessionStore,
@@ -481,6 +494,7 @@ export async function resolveReplyDirectives(params: {
       elevatedFailures,
       defaultActivation,
       resolvedThinkLevel: resolvedThinkLevelWithDefault,
+      resolvedFastMode,
       resolvedVerboseLevel,
       resolvedReasoningLevel,
       resolvedElevatedLevel,

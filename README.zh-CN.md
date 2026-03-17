@@ -48,14 +48,6 @@
 
 > 标注 `[上游]` 的是官方代码的 bug，`[Kosbling]` 的是我们改造引入需要配套的修复。
 
-- **`[上游]` HTTP provider 错误（401/403/503 等）不触发 model fallback**（`src/agents/pi-embedded-runner/run.ts`）
-  - provider 返回 HTTP 错误时，错误以 `lastAssistant.stopReason="error"` 形式返回，被包装为 `isError=true` payload，不抛异常，`runWithModelFallback` 的 catch 永远捕获不到
-  - 修复：在 while 循环中检测 `stopReason="error"` 的 assistant 消息，用 `coerceToFailoverError` 分类后抛出 `FailoverError`
-
-- **`[上游]` model-fallback 日志不可见**（`src/agents/model-fallback.ts`）
-  - fallback 尝试时无任何日志输出，难以诊断
-  - 修复：添加 info-level 日志，fallback attempt 信息输出到 `gateway.log`（stdout）
-
 - **`[Kosbling]` `fallbackConfigured` 不检查 `modelIsolation` fallbacks**（`src/agents/pi-embedded-runner/run.ts`）
   - 上游 `fallbackConfigured` 只检查 `agents.defaults.model.fallbacks`，不检查 `modelIsolation` 配置的 fallbacks，导致所有 failover 检查被跳过
   - 修复：扩展 `fallbackConfigured` 同时检查 `modelIsolation.enabled` + `main/secondary.fallbacks`
@@ -68,23 +60,25 @@
   - 上游仅将 `direct`/`dm` 识别为私聊，未把飞书 `p2p` 映射到 `direct`
   - 导致 `block_deliver.block_disable=true` 且 `dm_enable=true` 时，飞书私聊仍被当成非 DM 进行切割
   - 修复：补齐 `p2p -> direct` 归一化映射，确保 DM 豁免逻辑按预期生效
-- **`[上游]` ACP `sessions.patch` 血缘字段校验会拒绝 `acp:*` 会话键**（`src/gateway/sessions-patch.ts`）
-  - `spawnedBy` 只允许写入 `subagent:*`，但 ACP spawn 会在 `acp:*` 会话键写入 `spawnedBy`。
-  - 修复：将 `spawnedBy` 校验放宽为允许 `subagent:*` 或 `acp:*`（与上游 PR #40995 / commit `425bd89` 一致）。
 - **`[上游]` provider 瞬态 INTERNAL 错误按可重试 timeout 分类**（`src/agents/pi-embedded-helpers/failover-matches.ts`）
   - `got status: INTERNAL` 和 `{"status":"INTERNAL","code":500}` 这类返回会归类为可重试的 timeout 风格 failover 错误。
-- **`[上游]` WebChat 在 `final` 无可见 assistant 内容时会吞掉流式文本**（`ui/src/ui/controllers/chat.ts` + `ui/src/ui/chat/grouped-render.ts`）
-  - 某些运行里 `delta` 已有可见文本，但 `final.message` 只有 thinking（无 text/tool/image）；刷新或历史回放时会出现不可见 assistant 空壳，且流式草稿被清掉。
-  - 修复：`final` 分支增加可见性校验，`final` 不可见时回退持久化 `chatStream`；对非流式 assistant 空壳显示 `(no visible text)` 占位；并在运行中触发 `loadChatHistory()` 时避免清空活跃流式草稿。
 
 ### 已被上游覆盖（不再是 fork 独有）
 
+- **HTTP provider 错误现在会在上游触发 model fallback**（`src/agents/pi-embedded-runner/run.ts`）
+  - 上游 embedded runner 已处理 `lastAssistant.stopReason="error"` 的 failover 路径，旧的 fork 专属 rethrow 补丁不再需要。
+- **model fallback 可观测性已由上游接管**（`src/agents/model-fallback.ts`）
+  - fork 里额外输出到 stdout 的 fallback attempt 日志已不再需要，上游现在有结构化 fallback decision 日志。
 - **Models merge 模式下 provider baseUrl 优先级与 api 变化刷新**（`src/agents/models-config.ts`）
   - 旧的 fork 合并/baseUrl 保留补丁已移除，当前统一走上游 `planOpenClawModelsJson` 流程与上游测试覆盖。
 - **HTTP 529 failover 分类**（`src/agents/failover-error.ts`）
   - 旧的 fork 状态码映射补丁已移除，当前统一走上游 `classifyFailoverReasonFromHttpStatus`（含 `529 -> rate_limit`）。
+- **ACP `sessions.patch` 对 `acp:*` 会话键的血缘校验**（`src/gateway/sessions-patch.ts`）
+  - 上游现已支持在 ACP 会话键上写入 spawn lineage 字段，旧的 fork 补丁可以继续移除。
 - **Gateway 受管重启与孤儿进程防护**（`src/infra/process-respawn.ts`）
   - 当前实现来自上游，包含 supervisor marker 识别和 launchd kickstart 逻辑。
+- **WebChat 在空 `final` 下保留流式文本**（`ui/src/ui/controllers/chat.ts` + `ui/src/ui/chat/grouped-render.ts`）
+  - 上游现已在 `final` 无可见 assistant 内容时保留已流出的文本，因此先前的 fork UI 补丁不再必要。
 
 ### Model 隔离
 

@@ -9,12 +9,9 @@ Docs: https://docs.openclaw.ai
 
 ## Unreleased
 
-- WebChat: prevent streamed reply text from disappearing when `final` has no displayable assistant content (thinking-only final now falls back to streamed text).
-- WebChat: show `(no visible text)` placeholder for non-streaming assistant empty-shell messages to improve diagnosis.
-- WebChat: avoid clearing active stream draft during in-flight `chat.history` refresh.
+- Upstream sync target advanced to `v2026.3.13-1`.
 - Docs/process: README and CHANGELOG are now maintained as fork-focused bilingual docs; each commit should evaluate and sync both language files when user-facing behavior changes.
 - Cron isolated sessions: when starting a fresh run (`forceNew`/stale reset), clear inherited `sessionFile` to avoid pointing new `sessionId` at an old transcript file.
-- Gateway sessions.patch: allow `spawnedBy` lineage fields on `acp:*` session keys (in addition to `subagent:*`) to avoid ACP spawn patch failures.
 
 ## 2026.3.8
 

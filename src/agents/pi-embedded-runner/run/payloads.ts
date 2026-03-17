@@ -169,6 +169,7 @@ export function buildEmbeddedRunPayloads(params: {
   suppressToolErrorWarnings?: boolean;
   inlineToolResultsAllowed: boolean;
   didSendViaMessagingTool?: boolean;
+  didSendDeterministicApprovalPrompt?: boolean;
 }): Array<{
   text?: string;
   mediaUrl?: string;
@@ -192,15 +193,19 @@ export function buildEmbeddedRunPayloads(params: {
   }> = [];
 
   const useMarkdown = params.toolResultFormat === "markdown";
+  const suppressAssistantArtifacts = params.didSendDeterministicApprovalPrompt === true;
   const lastAssistantErrored = params.lastAssistant?.stopReason === "error";
-  const errorText = params.lastAssistant
-    ? formatAssistantErrorText(params.lastAssistant, {
-        cfg: params.config,
-        sessionKey: params.sessionKey,
-        provider: params.provider,
-        model: params.model,
-      })
-    : undefined;
+  const errorText =
+    params.lastAssistant && lastAssistantErrored
+      ? suppressAssistantArtifacts
+        ? undefined
+        : formatAssistantErrorText(params.lastAssistant, {
+            cfg: params.config,
+            sessionKey: params.sessionKey,
+            provider: params.provider,
+            model: params.model,
+          })
+      : undefined;
   const rawErrorMessage = lastAssistantErrored
     ? params.lastAssistant?.errorMessage?.trim() || undefined
     : undefined;
@@ -251,8 +256,9 @@ export function buildEmbeddedRunPayloads(params: {
     }
   }
 
-  const reasoningText =
-    params.lastAssistant && params.reasoningLevel === "on"
+  const reasoningText = suppressAssistantArtifacts
+    ? ""
+    : params.lastAssistant && params.reasoningLevel === "on"
       ? formatReasoningMessage(extractAssistantThinking(params.lastAssistant))
       : "";
   if (reasoningText) {
@@ -310,19 +316,21 @@ export function buildEmbeddedRunPayloads(params: {
     }
     return isRawApiErrorPayload(trimmed);
   };
-  const answerTexts = (
-    params.assistantTexts.length
-      ? params.assistantTexts
-      : fallbackAnswerText
-        ? [fallbackAnswerText]
-        : []
-  ).filter((text) => !shouldSuppressRawErrorText(text));
-  const scopedAnswerTexts =
-    shouldPreferPostToolFinalAnswer({
-      config: params.config,
-      messageProvider: params.messageProvider,
-      chatType: params.chatType,
-    }) && Array.isArray(params.messageHistory)
+  const answerTexts = suppressAssistantArtifacts
+    ? []
+    : (params.assistantTexts.length
+        ? params.assistantTexts
+        : fallbackAnswerText
+          ? [fallbackAnswerText]
+          : []
+      ).filter((text) => !shouldSuppressRawErrorText(text));
+  const scopedAnswerTexts = suppressAssistantArtifacts
+    ? []
+    : shouldPreferPostToolFinalAnswer({
+          config: params.config,
+          messageProvider: params.messageProvider,
+          chatType: params.chatType,
+        }) && Array.isArray(params.messageHistory)
       ? (() => {
           const postToolTexts = resolvePostToolAssistantTexts(params.messageHistory);
           if (postToolTexts.length === 0) {

@@ -49,15 +49,6 @@ All custom changes are marked in source code with `// KOSBLING-PATCH`.
 
 > `[Upstream]` means an issue in upstream code. `[Kosbling]` means a follow-up fix needed for our custom behavior.
 
-- **`[Upstream]` HTTP provider errors (401/403/503...) did not trigger model fallback** (`src/agents/pi-embedded-runner/run.ts`)
-  - Provider HTTP failures returned as `lastAssistant.stopReason="error"`, wrapped into `isError=true` payloads, and never thrown
-  - `runWithModelFallback` catch branch could not trigger
-  - Fix: detect `stopReason="error"` in the loop and throw `FailoverError` via `coerceToFailoverError`
-
-- **`[Upstream]` model fallback logs were invisible** (`src/agents/model-fallback.ts`)
-  - No visible logs during fallback attempts
-  - Fix: add info-level fallback attempt logs to `gateway.log` (stdout)
-
 - **`[Kosbling]` `fallbackConfigured` ignored `modelIsolation` fallbacks** (`src/agents/pi-embedded-runner/run.ts`)
   - Upstream only checked `agents.defaults.model.fallbacks`
   - In isolation mode, this caused fallback checks to be skipped
@@ -71,23 +62,25 @@ All custom changes are marked in source code with `// KOSBLING-PATCH`.
   - Upstream DM normalization recognized `direct`/`dm` only and did not map Feishu `p2p`
   - Result: with `block_deliver.block_disable=true` and `dm_enable=true`, Feishu DMs were still filtered as non-DM targets
   - Fix: normalize `p2p -> direct` so the DM exception path works as expected
-- **`[Upstream]` ACP `sessions.patch` lineage validation rejected `acp:*` session keys** (`src/gateway/sessions-patch.ts`)
-  - `spawnedBy` updates were restricted to `subagent:*` keys only, while ACP spawn writes `spawnedBy` on `acp:*` keys.
-  - Fix: allow `spawnedBy` lineage fields on `subagent:*` or `acp:*` session keys (matches upstream PR #40995 / commit `425bd89`).
 - **`[Upstream]` provider transient INTERNAL errors are retryable failover timeouts** (`src/agents/pi-embedded-helpers/failover-matches.ts`)
   - `got status: INTERNAL` and payloads like `{"status":"INTERNAL","code":500}` are classified as transient timeout-style failover errors.
-- **`[Upstream]` WebChat streamed text could disappear when `final` had no displayable assistant content** (`ui/src/ui/controllers/chat.ts` + `ui/src/ui/chat/grouped-render.ts`)
-  - In some runs, `delta` had visible text but `final.message` only carried thinking blocks (no text/tool/image), so refresh/history replay showed an invisible assistant shell and the streamed draft was lost.
-  - Fix: on `final`, apply a visibility guard and fall back to persisted `chatStream` when the final assistant message is not displayable; render `(no visible text)` for non-streaming empty assistant shells; and avoid clearing active stream drafts during in-flight `loadChatHistory()` refreshes.
 
 ### Upstream-Covered (no longer fork-only)
 
+- **HTTP provider errors now trigger model fallback upstream** (`src/agents/pi-embedded-runner/run.ts`)
+  - Upstream now handles `lastAssistant.stopReason="error"` in the embedded runner failover path, so the old fork-only rethrow patch is no longer needed.
+- **Model fallback observability moved upstream** (`src/agents/model-fallback.ts`)
+  - The fork-only stdout fallback-attempt log is no longer needed because upstream now emits structured fallback decision logs.
 - **Models merge-mode provider baseUrl precedence + api drift refresh** (`src/agents/models-config.ts`)
   - Fork-specific merge/baseUrl preservation patches were removed; behavior now follows upstream `planOpenClawModelsJson` flow and upstream test coverage.
 - **HTTP 529 classification in failover path** (`src/agents/failover-error.ts`)
   - Fork-specific HTTP status mapping patch was removed; behavior now uses upstream shared classifier (`classifyFailoverReasonFromHttpStatus`), including `529 -> rate_limit`.
+- **ACP `sessions.patch` lineage validation for `acp:*` session keys** (`src/gateway/sessions-patch.ts`)
+  - Upstream now allows spawn lineage fields on ACP session keys, so the old fork patch can stay removed.
 - **Gateway supervised restart guardrails** (`src/infra/process-respawn.ts`)
   - The current implementation now comes from upstream and includes supervised-env markers + launchd kickstart flow.
+- **WebChat streamed-text fallback on empty `final` messages** (`ui/src/ui/controllers/chat.ts` + `ui/src/ui/chat/grouped-render.ts`)
+  - Upstream now preserves streamed text when `final` has no displayable assistant content, so the earlier fork-only UI patch is no longer required.
 
 ## Model Isolation
 

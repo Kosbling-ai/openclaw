@@ -4,6 +4,7 @@ import {
   resolveSessionAgentId,
 } from "../../agents/agent-scope.js";
 import { normalizeIsolationModelRef } from "../../agents/edition-isolation.js"; // KOSBLING-PATCH
+import { resolveFastModeState } from "../../agents/fast-mode.js";
 import { resolveSandboxRuntimeStatus } from "../../agents/sandbox.js";
 import type { OpenClawConfig } from "../../config/config.js";
 import { type SessionEntry, updateSessionStore } from "../../config/sessions.js";
@@ -79,6 +80,7 @@ export async function handleDirectiveOnly(
     initialModelLabel,
     formatModelSwitchEvent,
     currentThinkLevel,
+    currentFastMode,
     currentVerboseLevel,
     currentReasoningLevel,
     currentElevatedLevel,
@@ -155,6 +157,15 @@ export async function handleDirectiveOnly(
 
   const resolvedProvider = modelSelection?.provider ?? provider;
   const resolvedModel = modelSelection?.model ?? model;
+  const fastModeState = resolveFastModeState({
+    cfg: params.cfg,
+    provider: resolvedProvider,
+    model: resolvedModel,
+    sessionEntry,
+  });
+  const effectiveFastMode = directives.fastMode ?? currentFastMode ?? fastModeState.enabled;
+  const effectiveFastModeSource =
+    directives.fastMode !== undefined ? "session" : fastModeState.source;
 
   if (directives.hasThinkDirective && !directives.thinkLevel) {
     // If no argument was provided, show the current level
@@ -180,6 +191,25 @@ export async function handleDirectiveOnly(
     }
     return {
       text: `Unrecognized verbose level "${directives.rawVerboseLevel}". Valid levels: off, on, full.`,
+    };
+  }
+  if (directives.hasFastDirective && directives.fastMode === undefined) {
+    if (!directives.rawFastMode) {
+      const sourceSuffix =
+        effectiveFastModeSource === "config"
+          ? " (config)"
+          : effectiveFastModeSource === "default"
+            ? " (default)"
+            : "";
+      return {
+        text: withOptions(
+          `Current fast mode: ${effectiveFastMode ? "on" : "off"}${sourceSuffix}.`,
+          "on, off",
+        ),
+      };
+    }
+    return {
+      text: `Unrecognized fast mode "${directives.rawFastMode}". Valid levels: on, off.`,
     };
   }
   if (directives.hasReasoningDirective && !directives.reasoningLevel) {
@@ -303,10 +333,17 @@ export async function handleDirectiveOnly(
     directives.elevatedLevel !== undefined &&
     elevatedEnabled &&
     elevatedAllowed;
+  const fastModeChanged =
+    directives.hasFastDirective &&
+    directives.fastMode !== undefined &&
+    directives.fastMode !== currentFastMode;
   let reasoningChanged =
     directives.hasReasoningDirective && directives.reasoningLevel !== undefined;
   if (directives.hasThinkDirective && directives.thinkLevel) {
     sessionEntry.thinkingLevel = directives.thinkLevel;
+  }
+  if (directives.hasFastDirective && directives.fastMode !== undefined) {
+    sessionEntry.fastMode = directives.fastMode;
   }
   if (shouldDowngradeXHigh) {
     sessionEntry.thinkingLevel = "high";
@@ -404,6 +441,13 @@ export async function handleDirectiveOnly(
         : `Thinking level set to ${directives.thinkLevel}.`,
     );
   }
+  if (directives.hasFastDirective && directives.fastMode !== undefined) {
+    parts.push(
+      directives.fastMode
+        ? formatDirectiveAck("Fast mode enabled.")
+        : formatDirectiveAck("Fast mode disabled."),
+    );
+  }
   if (directives.hasVerboseDirective && directives.verboseLevel) {
     parts.push(
       directives.verboseLevel === "off"
@@ -485,6 +529,12 @@ export async function handleDirectiveOnly(
   }
   if (directives.hasQueueDirective && directives.dropPolicy) {
     parts.push(formatDirectiveAck(`Queue drop set to ${directives.dropPolicy}.`));
+  }
+  if (fastModeChanged) {
+    enqueueSystemEvent(`Fast mode ${sessionEntry.fastMode ? "enabled" : "disabled"}.`, {
+      sessionKey,
+      contextKey: `fast:${sessionEntry.fastMode ? "on" : "off"}`,
+    });
   }
   const ack = parts.join(" ").trim();
   if (!ack && directives.hasStatusDirective) {
