@@ -40,6 +40,10 @@ All custom changes are marked in source code with `// KOSBLING-PATCH`.
   - Adds Kosbling Edition guidance to all agent system prompts
   - Includes model-isolation behavior and config guidance
 
+- **Bundled `skill-creator` skill** (`skills/skill-creator/**`)
+  - Adds a reusable Codex skill for creating, auditing, improving, packaging, and evaluating AgentSkills
+  - Includes bundled reviewer agents, packaging/validation scripts, schema references, and an evaluation viewer
+
 - **Global network SSRF policy for tool fetch paths** (`src/infra/net/trusted-network-ssrf.ts` + related tools/config)
   - Adds root-level `network.ssrfPolicy` as the default SSRF policy for non-browser network tools
   - Current inherited paths: `web_fetch`, `image` remote URL loading, and message attachment URL fetching

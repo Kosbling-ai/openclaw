@@ -39,6 +39,10 @@
   - 所有 agent 的 system prompt 中包含 Kosbling Edition 说明
   - 包括 model isolation 配置参考和定制版行为说明
 
+- **内置 `skill-creator` 技能**（`skills/skill-creator/**`）
+  - 新增一套可复用的 Codex 技能，用于创建、审查、改进、打包和评估 AgentSkills
+  - 包含配套 reviewer agents、打包/校验脚本、schema 参考资料和评估查看器
+
 - **工具抓取路径的全局网络 SSRF 策略**（`src/infra/net/trusted-network-ssrf.ts` + 相关 tools/config）
   - 新增根级 `network.ssrfPolicy`，作为非浏览器网络工具的默认 SSRF 策略
   - 当前继承路径：`web_fetch`、`image` 远程 URL 加载、消息附件 URL 抓取
