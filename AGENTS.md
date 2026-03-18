@@ -99,9 +99,12 @@
 - Keep commits focused and action-oriented.
 - Do not create/apply/drop `git stash` entries unless explicitly requested.
 - Do not switch branches, edit `.worktrees/*`, or create/remove worktrees unless explicitly requested.
+- When preparing an upstream PR for `openclaw/openclaw`, do that work in the dedicated upstream PR clone instead of this fork working repo, so branch prep, cherry-picks, and PR-only commits do not interfere with local fork development.
+- The dedicated upstream PR clone lives at `~/openclaw-upstream-pr`.
+- When syncing upstream official changes for this fork, use `merge` by default; do not use `rebase` unless the user explicitly asks for it.
 - When the user says `commit`, commit only your changes.
 - When the user says `commit all`, group and commit everything intentionally.
-- When the user says `push`, you may `git pull --rebase` first to integrate latest changes, but never discard other work.
+- When the user says `push`, you may `git pull` first to integrate latest changes with a merge, but never discard other work.
 - If unrelated files are dirty, leave them alone and commit only the files relevant to your task.
 - Running multiple agents is fine as long as each agent uses its own session.
 
