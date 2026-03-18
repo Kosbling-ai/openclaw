@@ -21,7 +21,6 @@
   - `/model` 命令、cron payload、spawn 显式指定全部封死
   - 支持 per-agent model override（必须在组 allowlist 内）
   - 详见下方 [Model 隔离](#model-隔离) 章节
-  - 已向官方提交 [Feature Proposal](https://github.com/openclaw/openclaw/discussions/28314)
 
 - **CLI Banner 品牌标识**（`src/cli/banner.ts`）
   - ASCII art 下方 `✦ Kosbling Edition ✦`，单行 banner `[Kosbling Edition]`

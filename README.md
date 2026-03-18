@@ -21,7 +21,6 @@ All custom changes are marked in source code with `// KOSBLING-PATCH`.
   - Explicitly blocks `/model`, cron model payload overrides, and spawn-time model overrides
   - Supports per-agent model override (must be in the group allowlist)
   - See [Model Isolation](#model-isolation)
-  - Proposal submitted upstream: [Feature Proposal](https://github.com/openclaw/openclaw/discussions/28314)
 
 - **CLI branding in banner** (`src/cli/banner.ts`)
   - `✦ Kosbling Edition ✦` under ASCII art
