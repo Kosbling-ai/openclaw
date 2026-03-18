@@ -20,6 +20,7 @@
 ## Fork Maintenance Rules
 
 - Keep fork-specific behavior and docs coherent. If user-facing behavior changes, explicitly evaluate whether `README.md` + `README.zh-CN.md` and `CHANGELOG.md` + `CHANGELOG.zh-CN.md` should be updated in the same change.
+- When a README-listed feature or bug fix has been submitted upstream as a GitHub pull request, mark that README entry in both `README.md` and `README.zh-CN.md` with the upstream PR link.
 - Root Chinese docs use `*.zh-CN.md` naming, not `*.cn.md`.
 - `docs/zh-CN/**` is generated; do not edit it unless explicitly asked.
 - When editing English docs that feed translation, update the source docs first and only touch generated zh-CN output if the task explicitly requires it.
@@ -110,3 +111,6 @@
 - Use the shared CLI palette in `src/terminal/palette.ts` instead of hardcoded colors for terminal UI.
 - Keep status output table-safe and ANSI-safe by following existing patterns in `src/terminal/table.ts`.
 - If a new `AGENTS.md` is added elsewhere in the repo, also add a matching `CLAUDE.md` symlink.
+- GitHub identity for this fork is the `Openbling` account.
+- When GitHub API auth is needed on this Mac, look up the token from Keychain service `codex-github-openbling-token` with account `zhanglingfei`.
+- Never print or paste the token into chat, logs, commits, or repo files; use it only for authenticated local commands or API calls.

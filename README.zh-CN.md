@@ -63,6 +63,10 @@
   - 上游仅将 `direct`/`dm` 识别为私聊，未把飞书 `p2p` 映射到 `direct`
   - 导致 `block_deliver.block_disable=true` 且 `dm_enable=true` 时，飞书私聊仍被当成非 DM 进行切割
   - 修复：补齐 `p2p -> direct` 归一化映射，确保 DM 豁免逻辑按预期生效
+- **`[上游]` transcript-only `gateway-injected` assistant 消息泄漏到外部渠道**（`src/agents/pi-embedded-subscribe.handlers.messages.ts`）
+  - 正常 assistant 回复可能先发出，随后一条 transcript-only 的 `provider=openclaw` / `model=gateway-injected` assistant 消息进入同一条对外投递链路，外部渠道会表现得像重复回复。
+  - 修复：在 embedded subscribe 的 `handleMessageStart` / `handleMessageUpdate` / `handleMessageEnd` 中统一过滤 transcript-only injected assistant 消息。
+  - 已提交官方 PR：[openclaw/openclaw#49779](https://github.com/openclaw/openclaw/pull/49779)
 - **`[上游]` provider 瞬态 INTERNAL 错误按可重试 timeout 分类**（`src/agents/pi-embedded-helpers/failover-matches.ts`）
   - `got status: INTERNAL` 和 `{"status":"INTERNAL","code":500}` 这类返回会归类为可重试的 timeout 风格 failover 错误。
 
@@ -181,6 +185,7 @@ openclaw agents isolation-guardrail disable --agent <agent-id>
 - **功能改造** → 记录在「功能改造」区
 - **Bug 修复** → 记录在「Bug 修复」区
 - 如涉及上游 bug，附上相关 issue 链接
+- 如某个已记录的功能或修复已经向上游提交 PR，在对应条目后补充 `已提交官方 PR：...` 标记
 
 ### 功能改动必须同步 System Prompt
 

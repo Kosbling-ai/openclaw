@@ -65,6 +65,10 @@ All custom changes are marked in source code with `// KOSBLING-PATCH`.
   - Upstream DM normalization recognized `direct`/`dm` only and did not map Feishu `p2p`
   - Result: with `block_deliver.block_disable=true` and `dm_enable=true`, Feishu DMs were still filtered as non-DM targets
   - Fix: normalize `p2p -> direct` so the DM exception path works as expected
+- **`[Upstream]` transcript-only `gateway-injected` assistant messages leaked to external channels** (`src/agents/pi-embedded-subscribe.handlers.messages.ts`)
+  - A normal assistant reply could be delivered first, then a transcript-only `provider=openclaw` / `model=gateway-injected` assistant message could enter the same outward delivery path and appear like a duplicate reply in channel integrations.
+  - Fix: suppress transcript-only injected assistant messages in embedded subscribe `handleMessageStart` / `handleMessageUpdate` / `handleMessageEnd`.
+  - Upstream PR: [openclaw/openclaw#49779](https://github.com/openclaw/openclaw/pull/49779)
 - **`[Upstream]` provider transient INTERNAL errors are retryable failover timeouts** (`src/agents/pi-embedded-helpers/failover-matches.ts`)
   - `got status: INTERNAL` and payloads like `{"status":"INTERNAL","code":500}` are classified as transient timeout-style failover errors.
 
@@ -185,6 +189,7 @@ Every change must also update this README:
 - **Feature change** -> add under "Feature Changes"
 - **Bug fix** -> add under "Bug Fixes"
 - If it is an upstream bug, include upstream issue links
+- If a listed feature or fix has already been submitted upstream as a PR, append `Upstream PR: [openclaw/openclaw#<number>](...)` to that README entry
 
 ### System Prompt Sync Required
 
