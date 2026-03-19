@@ -74,6 +74,10 @@
   - 正常 assistant 回复可能先发出，随后一条 transcript-only 的 `provider=openclaw` / `model=gateway-injected` assistant 消息进入同一条对外投递链路，外部渠道会表现得像重复回复。
   - 修复：在 embedded subscribe 的 `handleMessageStart` / `handleMessageUpdate` / `handleMessageEnd` 中统一过滤 transcript-only injected assistant 消息。
   - 已提交官方 PR：[openclaw/openclaw#49779](https://github.com/openclaw/openclaw/pull/49779)
+- **`[上游]` 订阅已有 embedded session 时会重放历史 assistant 回复**（`src/agents/pi-embedded-subscribe.ts` + handlers/tests）
+  - 当订阅一个已有 embedded session 时，`session.messages` 中已经存在的历史 assistant 消息可能重新进入对外投递链路，表现得像重复回复。
+  - 修复：在 embedded subscribe 处理中忽略 preexisting assistant 消息，同时保持新的 assistant 回复继续正常外发。
+  - 已提交官方 PR：[openclaw/openclaw#50176](https://github.com/openclaw/openclaw/pull/50176)
 - **`[上游]` provider 瞬态 INTERNAL 错误按可重试 timeout 分类**（`src/agents/pi-embedded-helpers/failover-matches.ts`）
   - `got status: INTERNAL` 和 `{"status":"INTERNAL","code":500}` 这类返回会归类为可重试的 timeout 风格 failover 错误。
   - 已提交官方 PR：[openclaw/openclaw#50148](https://github.com/openclaw/openclaw/pull/50148)

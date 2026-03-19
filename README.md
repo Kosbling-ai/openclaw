@@ -76,6 +76,10 @@ All custom changes are marked in source code with `// KOSBLING-PATCH`.
   - A normal assistant reply could be delivered first, then a transcript-only `provider=openclaw` / `model=gateway-injected` assistant message could enter the same outward delivery path and appear like a duplicate reply in channel integrations.
   - Fix: suppress transcript-only injected assistant messages in embedded subscribe `handleMessageStart` / `handleMessageUpdate` / `handleMessageEnd`.
   - Upstream PR: [openclaw/openclaw#49779](https://github.com/openclaw/openclaw/pull/49779)
+- **`[Upstream]` embedded session subscribe could replay historical assistant replies** (`src/agents/pi-embedded-subscribe.ts` + handlers/tests)
+  - When subscribing to an existing embedded session, historical assistant messages already present in `session.messages` could re-enter the outward delivery path and look like duplicate replies.
+  - Fix: ignore preexisting assistant messages during embedded subscribe handling while still allowing new assistant replies to flow normally.
+  - Upstream PR: [openclaw/openclaw#50176](https://github.com/openclaw/openclaw/pull/50176)
 - **`[Upstream]` provider transient INTERNAL errors are retryable failover timeouts** (`src/agents/pi-embedded-helpers/failover-matches.ts`)
   - `got status: INTERNAL` and payloads like `{"status":"INTERNAL","code":500}` are classified as transient timeout-style failover errors.
   - Upstream PR: [openclaw/openclaw#50148](https://github.com/openclaw/openclaw/pull/50148)
