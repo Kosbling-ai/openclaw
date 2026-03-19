@@ -13,6 +13,7 @@ Docs: https://docs.openclaw.ai
 - Docs/process: README and CHANGELOG are now maintained as fork-focused bilingual docs; each commit should evaluate and sync both language files when user-facing behavior changes.
 - Cron isolated sessions: when starting a fresh run (`forceNew`/stale reset), clear inherited `sessionFile` to avoid pointing new `sessionId` at an old transcript file.
 - Web UI: restored a visible `Kosbling Edition` badge in the control dashboard sidebar after the upstream shell refresh.
+- Feishu groups: stopped replaying historical assistant finals on new embedded-session runs, preventing repeated outbound replies while still suppressing transcript-only internal assistant messages.
 
 ## Model Isolation Timeline
 

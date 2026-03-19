@@ -37,10 +37,12 @@ export function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSessionPar
   const useMarkdown = toolResultFormat === "markdown";
   const state: EmbeddedPiSubscribeState = {
     assistantTexts: [],
+    preexistingMessages: new Set(params.session.messages ?? []),
     toolMetas: [],
     toolMetaById: new Map(),
     toolSummaryById: new Set(),
     lastToolError: undefined,
+    initialReplayInProgress: true,
     blockReplyBreak: params.blockReplyBreak ?? "text_end",
     reasoningMode,
     includeReasoning: reasoningMode === "on",
@@ -642,6 +644,7 @@ export function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSessionPar
   };
 
   const sessionUnsubscribe = params.session.subscribe(createEmbeddedPiSessionEventHandler(ctx));
+  state.initialReplayInProgress = false;
 
   const unsubscribe = () => {
     if (state.unsubscribed) {
