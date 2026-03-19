@@ -13,6 +13,7 @@
 - 文档流程：README 与 CHANGELOG 现为 fork 双语自维护文档；每次涉及用户可见行为的提交都要评估并同步中英文版本。
 - Cron 隔离会话：在 fresh run（`forceNew`/过期重建）时清空继承的 `sessionFile`，避免新 `sessionId` 仍指向旧 transcript 文件。
 - Web UI：在上游新版控制台壳层更新后，恢复侧边栏中的 `Kosbling Edition` 可见标识。
+- Feishu 群聊：停止在新的 embedded-session run 中重放历史 assistant final，避免重复外发，同时继续屏蔽 transcript-only 的内部 assistant 消息。
 
 ## Model 隔离演进时间线
 
