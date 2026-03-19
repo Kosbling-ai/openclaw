@@ -17,9 +17,12 @@ All custom changes are marked in source code with `// KOSBLING-PATCH`.
 ### Feature Changes
 
 - **Model Isolation** (`src/agents/edition-isolation.ts` + multiple files)
-  - Root-level `modelIsolation` config with fully isolated `main`/`secondary` groups
-  - Explicitly blocks `/model`, cron model payload overrides, and spawn-time model overrides
-  - Supports per-agent model override (must be in the group allowlist)
+  - Root-level `modelIsolation` config with isolated `main`/`secondary` model lanes
+  - Normal interactive sessions stay on `main`; cron and subagent flows are routed to `secondary`
+  - `/model`, stored session overrides, `sessions.patch`, `sessions_spawn`, cron payload models, and spawn-time explicit models all go through the same isolation normalization layer
+  - In-group model requests are kept; out-of-group requests are rewritten back to the active group's effective model
+  - Supports per-agent model override and main-group token guardrail
+  - Detailed evolution and commit trail: [CHANGELOG.md#model-isolation-timeline](CHANGELOG.md#model-isolation-timeline)
   - See [Model Isolation](#model-isolation)
 
 - **CLI branding in banner** (`src/cli/banner.ts`)
@@ -68,12 +71,14 @@ All custom changes are marked in source code with `// KOSBLING-PATCH`.
   - Upstream DM normalization recognized `direct`/`dm` only and did not map Feishu `p2p`
   - Result: with `block_deliver.block_disable=true` and `dm_enable=true`, Feishu DMs were still filtered as non-DM targets
   - Fix: normalize `p2p -> direct` so the DM exception path works as expected
+  - Upstream PR: [openclaw/openclaw#49819](https://github.com/openclaw/openclaw/pull/49819)
 - **`[Upstream]` transcript-only `gateway-injected` assistant messages leaked to external channels** (`src/agents/pi-embedded-subscribe.handlers.messages.ts`)
   - A normal assistant reply could be delivered first, then a transcript-only `provider=openclaw` / `model=gateway-injected` assistant message could enter the same outward delivery path and appear like a duplicate reply in channel integrations.
   - Fix: suppress transcript-only injected assistant messages in embedded subscribe `handleMessageStart` / `handleMessageUpdate` / `handleMessageEnd`.
   - Upstream PR: [openclaw/openclaw#49779](https://github.com/openclaw/openclaw/pull/49779)
 - **`[Upstream]` provider transient INTERNAL errors are retryable failover timeouts** (`src/agents/pi-embedded-helpers/failover-matches.ts`)
   - `got status: INTERNAL` and payloads like `{"status":"INTERNAL","code":500}` are classified as transient timeout-style failover errors.
+  - Upstream PR: [openclaw/openclaw#50148](https://github.com/openclaw/openclaw/pull/50148)
 
 ### Upstream-Covered (no longer fork-only)
 
@@ -94,23 +99,77 @@ All custom changes are marked in source code with `// KOSBLING-PATCH`.
 
 ## Model Isolation
 
+Kosbling Edition uses model isolation to keep regular chat traffic and background/automation work on separate model lanes without relying on operator discipline.
+The current implementation is the result of several follow-up fixes and refactors, so the practical behavior is broader than the original "main vs cron/subagent" note.
+For the commit-by-commit evolution of this feature, see [CHANGELOG.md#model-isolation-timeline](CHANGELOG.md#model-isolation-timeline).
+
 `openclaw.json` example:
 
-```json
+```json5
 {
-  "modelIsolation": {
-    "enabled": true,
-    "main": {
-      "model": "anthropic/claude-opus-4-6",
-      "fallbacks": ["anthropic/claude-sonnet-4-6"]
+  modelIsolation: {
+    enabled: true,
+    main: {
+      model: "anthropic/claude-opus-4-6",
+      fallbacks: ["anthropic/claude-sonnet-4-6"],
+      tokenGuardrail: {
+        enabled: true,
+        windowMinutes: 5,
+        maxTokens: 20000,
+      },
     },
-    "secondary": {
-      "model": "anthropic/claude-sonnet-4-6",
-      "fallbacks": ["anthropic/claude-haiku-3-5"]
-    }
-  }
+    secondary: {
+      model: "anthropic/claude-sonnet-4-6",
+      fallbacks: ["anthropic/claude-haiku-3-5"],
+    },
+    agents: {
+      writer: {
+        model: "anthropic/claude-sonnet-4-6",
+      },
+    },
+  },
 }
 ```
+
+### What it controls
+
+- `main` group: normal agent conversations such as DM/group replies, TUI, WebChat, and other primary interactive runs
+- `secondary` group: cron-owned runs and subagent-owned runs
+- Fallbacks are group-local. A `main` session never falls through to `secondary`, and `secondary` never borrows `main`
+- If `modelIsolation.enabled` is missing or `false`, OpenClaw uses upstream behavior
+
+### Effective model resolution
+
+When isolation is enabled, the runtime does not just read `main.model` / `secondary.model` once.
+It resolves an effective model for each run using these rules:
+
+1. Pick the active group from the session key (`main` for regular sessions, `secondary` for cron/subagents).
+2. Load that group's primary model and fallback list.
+3. If `modelIsolation.agents.<agentId>.model` is set, accept it only when it is inside the active group's allowlist (`primary + fallbacks`).
+4. Use that effective model as the group's baseline for the run.
+
+That means per-agent override is not a third free-form lane.
+It is a group-local override constrained by the current group's allowlist.
+
+### How model requests are handled
+
+Isolation is enforced through a shared normalization path, not by one-off checks.
+The following surfaces all go through the same isolation resolver:
+
+- `/model` and other chat directive-driven model changes
+- stored session model overrides
+- `sessions.patch`
+- `sessions_spawn`
+- cron `payload.model`
+- explicit model values passed during subagent spawn / internal run setup
+
+Practical result:
+
+- request a model inside the active group's allowlist: the requested model is kept
+- request a model outside the active group: the request is rewritten back to the active group's effective model
+- request an invalid model string: the request still errors normally
+
+So the current behavior is better described as "group-aware normalization" than "hard block everything except the default model".
 
 ### Block Delivery Policy (new)
 
@@ -134,12 +193,13 @@ All custom changes are marked in source code with `// KOSBLING-PATCH`.
 Behavior summary:
 
 - `enabled: false` or missing: upstream behavior, no impact
-- `enabled: true`: `main` group handles primary agent conversations (DM/group/TUI/webchat), `secondary` group handles cron/subagents
+- `enabled: true`: `main` handles interactive sessions, `secondary` handles cron/subagents
 - Groups are fully isolated, fallback does not cross groups, and full failure surfaces as error
-- All model choice surfaces follow the active isolation group. Group-in models apply normally; group-out models are normalized back to the group's default model.
-- Session model overrides (`/model`) are persisted per session; under `modelIsolation`, requested models are normalized to the active group allowlist.
-- Fallback order also follows the active isolation group (`main` vs `secondary`).
-- `/status` shows session-specific override status while keeping the group baseline on the `Edition` line.
+- Model choice surfaces are normalized to the active group, not allowed to drift across lanes
+- Session model overrides stay persisted per session, but their effective runtime model is isolation-normalized
+- Fallback order follows the active group (`main` vs `secondary`)
+- `/status` shows the effective session model and only shows a fallback line after an actual runtime fallback occurs
+- The `Edition` line in `/status` shows the current isolation group baseline
 
 For custom provider merge behavior (`openclaw.json` vs per-agent `models.json`), see [Models registry](https://docs.openclaw.ai/concepts/models#models-registry-modelsjson).
 For token-window cache reset after model/fallback drift, run `openclaw sessions cleanup --enforce --clear-context-tokens` (optional: add `--clear-total-tokens-fresh`).
@@ -150,6 +210,12 @@ For token-window cache reset after model/fallback drift, run `openclaw sessions 
 If weighted token usage across that agent's main-group sessions exceeds the configured
 window threshold, main-group runs are paused for that agent until you manually disable
 the guardrail.
+
+Important scope details:
+
+- Guardrail is main-group only; secondary-group cron/subagent runs are not paused by it
+- State is tracked per agent under that agent's directory
+- Trigger state is queryable from Gateway/UI and can be cleared with the CLI command below
 
 ```json5
 {

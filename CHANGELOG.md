@@ -14,6 +14,24 @@ Docs: https://docs.openclaw.ai
 - Cron isolated sessions: when starting a fresh run (`forceNew`/stale reset), clear inherited `sessionFile` to avoid pointing new `sessionId` at an old transcript file.
 - Web UI: restored a visible `Kosbling Edition` badge in the control dashboard sidebar after the upstream shell refresh.
 
+## Model Isolation Timeline
+
+- `8974918104` Initial fork feature: split model lanes for main vs cron/subagent.
+- `ce60f9ef8d` First strict guard: blocked ad-hoc model switching while isolation was enabled.
+- `60287ff919` Added per-agent override support, constrained to the active group allowlist.
+- `09a024afcc` Added isolation group visibility to `/status`.
+- `6203e08177` Made `/status` model line reflect isolation-selected runtime model.
+- `bbe260d7be` Fixed `/status` fallback line so it only appears after a real fallback.
+- `c068fa0ea9` Moved config from legacy namespace to root-level `modelIsolation`.
+- `256d35c00f` Fixed false fallback reporting before the first request in isolation mode.
+- `ddd0bec980` Unified runtime model resolution and started enforcing override guards through shared isolation logic.
+- `4412588128` Normalized model overrides consistently across sessions, spawn, and cron.
+- `a2b54ffbe9` Let `sessions_spawn` explicit model requests flow through the same isolation normalization path.
+- `d5ec256e4d` Made persisted session model overrides honor isolation-normalized effective models.
+- `7bf6d0f1a6` Added main-group token guardrail controls.
+- `e3c29e8840` Switched guardrail accounting to weighted token usage.
+- `a2aa1a1e03` Aligned model-selection surfaces so `/model`, session overrides, `sessions.patch`, cron payloads, and spawn-time models now follow the same isolation rules.
+
 ## 2026.3.8
 
 - Upstream sync baseline advanced to include `v2026.3.8`.

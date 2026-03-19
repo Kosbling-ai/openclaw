@@ -17,9 +17,12 @@
 ### 功能改造
 
 - **Model 隔离**（`src/agents/edition-isolation.ts` + 多个文件）
-  - 根级 `modelIsolation` 配置块，main/secondary 两组完全隔离
-  - `/model` 命令、cron payload、spawn 显式指定全部封死
-  - 支持 per-agent model override（必须在组 allowlist 内）
+  - 根级 `modelIsolation` 配置块，提供 `main` / `secondary` 两条隔离模型通道
+  - 普通交互会话走 `main`，cron 和 subagent 流程走 `secondary`
+  - `/model`、持久化 session override、`sessions.patch`、`sessions_spawn`、cron payload model、spawn 显式 model 都走同一套隔离归一化逻辑
+  - 组内模型请求会保留，组外模型请求会被改写回当前组的有效模型
+  - 支持 per-agent model override 和 main 组 token guardrail
+  - 详细演进和对应 commit 见：[CHANGELOG.zh-CN.md#model-隔离演进时间线](CHANGELOG.zh-CN.md#model-隔离演进时间线)
   - 详见下方 [Model 隔离](#model-隔离) 章节
 
 - **CLI Banner 品牌标识**（`src/cli/banner.ts`）
@@ -66,12 +69,14 @@
   - 上游仅将 `direct`/`dm` 识别为私聊，未把飞书 `p2p` 映射到 `direct`
   - 导致 `block_deliver.block_disable=true` 且 `dm_enable=true` 时，飞书私聊仍被当成非 DM 进行切割
   - 修复：补齐 `p2p -> direct` 归一化映射，确保 DM 豁免逻辑按预期生效
+  - 已提交官方 PR：[openclaw/openclaw#49819](https://github.com/openclaw/openclaw/pull/49819)
 - **`[上游]` transcript-only `gateway-injected` assistant 消息泄漏到外部渠道**（`src/agents/pi-embedded-subscribe.handlers.messages.ts`）
   - 正常 assistant 回复可能先发出，随后一条 transcript-only 的 `provider=openclaw` / `model=gateway-injected` assistant 消息进入同一条对外投递链路，外部渠道会表现得像重复回复。
   - 修复：在 embedded subscribe 的 `handleMessageStart` / `handleMessageUpdate` / `handleMessageEnd` 中统一过滤 transcript-only injected assistant 消息。
   - 已提交官方 PR：[openclaw/openclaw#49779](https://github.com/openclaw/openclaw/pull/49779)
 - **`[上游]` provider 瞬态 INTERNAL 错误按可重试 timeout 分类**（`src/agents/pi-embedded-helpers/failover-matches.ts`）
   - `got status: INTERNAL` 和 `{"status":"INTERNAL","code":500}` 这类返回会归类为可重试的 timeout 风格 failover 错误。
+  - 已提交官方 PR：[openclaw/openclaw#50148](https://github.com/openclaw/openclaw/pull/50148)
 
 ### 已被上游覆盖（不再是 fork 独有）
 
@@ -92,23 +97,74 @@
 
 ### Model 隔离
 
+Kosbling Edition 的 model 隔离，不只是把主对话和后台任务分成两组模型。
+这块后来经过多次补丁和收敛，现在的实际行为已经演化成“一套覆盖主要模型选择入口的隔离归一化层”。
+如果要按 commit 回看这项功能是怎么演进出来的，见 [CHANGELOG.zh-CN.md#model-隔离演进时间线](CHANGELOG.zh-CN.md#model-隔离演进时间线)。
+
 `openclaw.json` 配置：
 
-```json
+```json5
 {
-  "modelIsolation": {
-    "enabled": true,
-    "main": {
-      "model": "anthropic/claude-opus-4-6",
-      "fallbacks": ["anthropic/claude-sonnet-4-6"]
+  modelIsolation: {
+    enabled: true,
+    main: {
+      model: "anthropic/claude-opus-4-6",
+      fallbacks: ["anthropic/claude-sonnet-4-6"],
+      tokenGuardrail: {
+        enabled: true,
+        windowMinutes: 5,
+        maxTokens: 20000,
+      },
     },
-    "secondary": {
-      "model": "anthropic/claude-sonnet-4-6",
-      "fallbacks": ["anthropic/claude-haiku-3-5"]
-    }
-  }
+    secondary: {
+      model: "anthropic/claude-sonnet-4-6",
+      fallbacks: ["anthropic/claude-haiku-3-5"],
+    },
+    agents: {
+      writer: {
+        model: "anthropic/claude-sonnet-4-6",
+      },
+    },
+  },
 }
 ```
+
+### 它实际控制什么
+
+- `main` 组：普通 agent 对话，例如私聊、群聊、TUI、WebChat 等主交互会话
+- `secondary` 组：cron 运行和 subagent 运行
+- fallback 严格留在组内，不会跨组串用
+- 如果 `modelIsolation.enabled` 缺失或为 `false`，就回到官方原版行为
+
+### 实际模型解析顺序
+
+隔离开启后，运行时不是简单读一下 `main.model` / `secondary.model` 就结束，而是会按下面顺序解析每次运行的有效模型：
+
+1. 先根据 session key 判断当前属于哪一组
+2. 读取该组的主模型和 fallback 列表
+3. 如果配置了 `modelIsolation.agents.<agentId>.model`，只有当它属于当前组 allowlist（主模型 + fallbacks）时才生效
+4. 最终得到这次运行的组内有效模型
+
+所以 per-agent override 不是第三条自由通道，而是“受当前组 allowlist 约束的组内覆写”。
+
+### 哪些模型入口会被隔离归一化
+
+现在不是只拦 `/model`，而是下面这些入口都会走同一套隔离归一化逻辑：
+
+- `/model` 和其他聊天指令触发的模型切换
+- 持久化的 session model override
+- `sessions.patch`
+- `sessions_spawn`
+- cron `payload.model`
+- subagent spawn / 内部运行初始化时传入的显式 model
+
+实际效果是：
+
+- 请求当前组 allowlist 内的模型：保留原请求
+- 请求当前组之外的模型：自动改写回当前组的有效模型
+- 请求非法模型字符串：仍然按正常错误处理
+
+所以现在更准确的描述，不是“全部封死”，而是“所有主要入口都按当前隔离组做归一化”。
 
 ### Block 投递策略（新增）
 
@@ -132,12 +188,13 @@
 行为：
 
 - `enabled: false` 或不存在 → 走官方原版逻辑，零影响
-- `enabled: true` → main 组用于主 agent 对话（DM/群聊/TUI/webchat），secondary 组用于 cron/subagent
+- `enabled: true` → `main` 用于交互会话，`secondary` 用于 cron/subagent
 - 两组完全隔离，fallback 不穿透，全挂则报错
-- 所有模型选择入口都会按当前隔离组处理。组内模型按常规生效；组外模型会被归一化回该组默认模型
-- 会话级 `/model` 覆写会持久化；在 `modelIsolation` 下，请求模型会被归一化到当前组 allowlist。
-- fallback 顺序也跟随当前隔离组（`main` / `secondary`）。
-- `/status` 会显示会话级 model override，同时保留 Edition 行上的组基线。
+- 所有主要模型选择入口都会按当前隔离组归一化，不允许跨 lane 漂移
+- 会话级 `/model` 覆写仍会持久化，但运行时生效模型会被隔离策略重新归一化
+- fallback 顺序也跟随当前隔离组（`main` / `secondary`）
+- `/status` 只有在真正发生运行时 fallback 后才显示 fallback 行
+- `/status` 的 Edition 行会保留当前隔离组基线
 
 关于自定义 provider merge 行为（`openclaw.json` vs 每 agent 的 `models.json`），参见 [Models registry](https://docs.openclaw.ai/concepts/models#models-registry-modelsjson)。
 模型/fallback 漂移后如需重置 token-window 缓存，可运行：`openclaw sessions cleanup --enforce --clear-context-tokens`（可选追加 `--clear-total-tokens-fresh`）。
@@ -146,6 +203,12 @@
 
 `modelIsolation.main.tokenGuardrail` 可为 main 组会话增加按 agent 维度的 token 护栏。
 当该 agent 的 main 组会话在配置时间窗口内的加权 token 使用量超过阈值时，会暂停该 agent 的 main 组运行，直到你手动关闭该护栏。
+
+作用域说明：
+
+- 只影响 main 组；secondary 组 cron/subagent 不会被这个护栏暂停
+- 状态按 agent 维度落盘到各自 agent 目录
+- 当前状态可由 Gateway/UI 查询，也可通过下面的 CLI 命令手动解除
 
 ```json5
 {
