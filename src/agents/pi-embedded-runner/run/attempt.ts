@@ -2590,6 +2590,7 @@ export async function runEmbeddedAttempt(
         }
         messagesSnapshot = snapshotSelection.messagesSnapshot;
         sessionIdUsed = snapshotSelection.sessionIdUsed;
+        const newMessagesSnapshot = messagesSnapshot.slice(prePromptMessageCount);
 
         if (promptError && promptErrorSource === "prompt" && !compactionOccurredThisAttempt) {
           try {
@@ -2631,20 +2632,19 @@ export async function runEmbeddedAttempt(
             }
           } else {
             // Fallback: ingest new messages individually
-            const newMessages = messagesSnapshot.slice(prePromptMessageCount);
-            if (newMessages.length > 0) {
+            if (newMessagesSnapshot.length > 0) {
               if (typeof params.contextEngine.ingestBatch === "function") {
                 try {
                   await params.contextEngine.ingestBatch({
                     sessionId: sessionIdUsed,
                     sessionKey: params.sessionKey,
-                    messages: newMessages,
+                    messages: newMessagesSnapshot,
                   });
                 } catch (ingestErr) {
                   log.warn(`context engine ingest failed: ${String(ingestErr)}`);
                 }
               } else {
-                for (const msg of newMessages) {
+                for (const msg of newMessagesSnapshot) {
                   try {
                     await params.contextEngine.ingest({
                       sessionId: sessionIdUsed,
@@ -2769,6 +2769,7 @@ export async function runEmbeddedAttempt(
         bootstrapPromptWarningSignature: bootstrapPromptWarning.signature,
         systemPromptReport,
         messagesSnapshot,
+        newMessagesSnapshot,
         assistantTexts,
         toolMetas: toolMetasNormalized,
         lastAssistant,

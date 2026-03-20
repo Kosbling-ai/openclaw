@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildPayloads, expectSingleToolErrorPayload } from "./payloads.test-helpers.js";
+import {
+  buildPayloads,
+  expectSinglePayloadText,
+  expectSingleToolErrorPayload,
+} from "./payloads.test-helpers.js";
 
 describe("buildEmbeddedRunPayloads tool-error warnings", () => {
   it("suppresses exec tool errors when verbose mode is off", () => {
@@ -90,5 +94,23 @@ describe("buildEmbeddedRunPayloads tool-error warnings", () => {
     });
 
     expect(payloads).toHaveLength(0);
+  });
+
+  it("filters replayed historical assistant texts when current-run history only contains the latest reply", () => {
+    const payloads = buildPayloads({
+      assistantTexts: ["Earlier reply", "Current reply"],
+      newMessageHistory: [
+        {
+          role: "assistant",
+          content: [{ type: "text", text: "Current reply" }],
+        },
+      ],
+      lastAssistant: {
+        role: "assistant",
+        content: [{ type: "text", text: "Current reply" }],
+      },
+    });
+
+    expectSinglePayloadText(payloads, "Current reply");
   });
 });

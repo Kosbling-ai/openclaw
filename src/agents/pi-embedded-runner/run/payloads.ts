@@ -116,6 +116,45 @@ function resolvePostToolAssistantTexts(history: unknown[]): string[] {
     .filter(Boolean);
 }
 
+function resolveAssistantTextsFromHistory(history: unknown[] | undefined): string[] {
+  if (!Array.isArray(history) || history.length === 0) {
+    return [];
+  }
+  return history
+    .filter((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return false;
+      }
+      return (entry as { role?: unknown }).role === "assistant";
+    })
+    .map((message) => extractAssistantText(message as AssistantMessage))
+    .map((text) => text.trim())
+    .filter(Boolean);
+}
+
+function resolveCurrentRunAssistantTexts(params: {
+  assistantTexts: string[];
+  newMessageHistory?: unknown[];
+}): string[] {
+  const historyTexts = resolveAssistantTextsFromHistory(params.newMessageHistory);
+  if (historyTexts.length === 0) {
+    return params.assistantTexts;
+  }
+  const normalizedHistoryTexts = historyTexts
+    .map((text) => normalizeTextForComparison(text))
+    .filter((text) => text.length > 0);
+  const filteredAssistantTexts = params.assistantTexts.filter((text) => {
+    const normalizedText = normalizeTextForComparison(text);
+    if (!normalizedText) {
+      return false;
+    }
+    return normalizedHistoryTexts.some(
+      (historyText) => historyText === normalizedText || historyText.includes(normalizedText),
+    );
+  });
+  return filteredAssistantTexts.length > 0 ? filteredAssistantTexts : historyTexts;
+}
+
 function resolveToolErrorWarningPolicy(params: {
   lastToolError: LastToolError;
   hasUserFacingReply: boolean;
@@ -154,6 +193,7 @@ function resolveToolErrorWarningPolicy(params: {
 export function buildEmbeddedRunPayloads(params: {
   assistantTexts: string[];
   messageHistory?: unknown[];
+  newMessageHistory?: unknown[];
   toolMetas: ToolMetaEntry[];
   lastAssistant: AssistantMessage | undefined;
   lastToolError?: LastToolError;
@@ -266,6 +306,10 @@ export function buildEmbeddedRunPayloads(params: {
   }
 
   const fallbackAnswerText = params.lastAssistant ? extractAssistantText(params.lastAssistant) : "";
+  const currentRunAssistantTexts = resolveCurrentRunAssistantTexts({
+    assistantTexts: params.assistantTexts,
+    newMessageHistory: params.newMessageHistory,
+  });
   const shouldSuppressRawErrorText = (text: string) => {
     if (!lastAssistantErrored) {
       return false;
@@ -318,8 +362,8 @@ export function buildEmbeddedRunPayloads(params: {
   };
   const answerTexts = suppressAssistantArtifacts
     ? []
-    : (params.assistantTexts.length
-        ? params.assistantTexts
+    : (currentRunAssistantTexts.length
+        ? currentRunAssistantTexts
         : fallbackAnswerText
           ? [fallbackAnswerText]
           : []
@@ -330,9 +374,11 @@ export function buildEmbeddedRunPayloads(params: {
           config: params.config,
           messageProvider: params.messageProvider,
           chatType: params.chatType,
-        }) && Array.isArray(params.messageHistory)
+        }) && Array.isArray(params.newMessageHistory ?? params.messageHistory)
       ? (() => {
-          const postToolTexts = resolvePostToolAssistantTexts(params.messageHistory);
+          const postToolTexts = resolvePostToolAssistantTexts(
+            (params.newMessageHistory ?? params.messageHistory) as unknown[],
+          );
           if (postToolTexts.length === 0) {
             return answerTexts;
           }
