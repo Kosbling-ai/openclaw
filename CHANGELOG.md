@@ -14,6 +14,7 @@ Docs: https://docs.openclaw.ai
 - Cron isolated sessions: when starting a fresh run (`forceNew`/stale reset), clear inherited `sessionFile` to avoid pointing new `sessionId` at an old transcript file.
 - Web UI: restored a visible `Kosbling Edition` badge in the control dashboard sidebar after the upstream shell refresh.
 - Feishu groups: stopped replaying historical assistant finals on new embedded-session runs, preventing repeated outbound replies while still suppressing transcript-only internal assistant messages.
+- Feishu groups: added a runner-level safeguard that scopes outbound assistant payloads to the current turn's newly appended messages, so replayed historical finals cannot leak through cloned session events.
 
 ## Model Isolation Timeline
 

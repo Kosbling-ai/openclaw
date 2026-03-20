@@ -14,6 +14,7 @@
 - Cron 隔离会话：在 fresh run（`forceNew`/过期重建）时清空继承的 `sessionFile`，避免新 `sessionId` 仍指向旧 transcript 文件。
 - Web UI：在上游新版控制台壳层更新后，恢复侧边栏中的 `Kosbling Edition` 可见标识。
 - Feishu 群聊：停止在新的 embedded-session run 中重放历史 assistant final，避免重复外发，同时继续屏蔽 transcript-only 的内部 assistant 消息。
+- Feishu 群聊：新增 runner 层兜底，只允许当前 turn 新增消息窗口内的 assistant 内容进入外发 payload，避免历史 final 通过 clone/replay 事件再次泄漏。
 
 ## Model 隔离演进时间线
 
