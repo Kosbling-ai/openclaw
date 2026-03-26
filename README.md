@@ -80,6 +80,10 @@ All custom changes are marked in source code with `// KOSBLING-PATCH`.
   - When subscribing to an existing embedded session, historical assistant messages already present in `session.messages` could re-enter the outward delivery path and look like duplicate replies.
   - Fix: ignore preexisting assistant messages during embedded subscribe handling while still allowing new assistant replies to flow normally.
   - Upstream PR: [openclaw/openclaw#50176](https://github.com/openclaw/openclaw/pull/50176)
+- **`[Upstream]` back-to-back Feishu turns in the same embedded session could misattribute a late assistant final to the next run** (`src/agents/pi-embedded-subscribe.handlers.messages.ts` + tests)
+  - When a user sent another Feishu group message immediately after an assistant answer, the previous run's late `message_end` could arrive after the next run had already subscribed.
+  - Result: the next run could treat that prior assistant final as its own newly observed reply and send it again, which looked like a duplicate outbound message in Feishu groups.
+  - Fix: embedded subscribe now only accepts assistant messages whose current run actually observed a `message_start` or live text delta, so late finals from the previous run are ignored instead of being re-sent.
 - **`[Upstream]` provider transient INTERNAL errors are retryable failover timeouts** (`src/agents/pi-embedded-helpers/failover-matches.ts`)
   - `got status: INTERNAL` and payloads like `{"status":"INTERNAL","code":500}` are classified as transient timeout-style failover errors.
   - Upstream PR: [openclaw/openclaw#50148](https://github.com/openclaw/openclaw/pull/50148)

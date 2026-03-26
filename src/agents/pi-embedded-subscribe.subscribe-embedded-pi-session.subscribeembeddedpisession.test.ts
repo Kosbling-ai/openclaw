@@ -373,6 +373,40 @@ describe("subscribeEmbeddedPiSession", () => {
     expect(payloads[0]?.text).toBe("Current reply");
   });
 
+  it("ignores a late assistant message_end when this subscription never observed its start", () => {
+    const historicalAssistantMessage = {
+      role: "assistant",
+      content: [{ type: "text", text: "Earlier reply" }],
+    } as AssistantMessage;
+    const { emit, onAgentEvent } = createAgentEventHarness();
+
+    emit({ type: "message_end", message: historicalAssistantMessage });
+    emitMessageStartAndEndForAssistantText({ emit, text: "Current reply" });
+
+    const payloads = extractAgentEventPayloads(onAgentEvent.mock.calls);
+    expect(payloads).toHaveLength(1);
+    expect(payloads[0]?.text).toBe("Current reply");
+  });
+
+  it("adopts current-run assistant text deltas even if message_start was missed", () => {
+    const { emit, onAgentEvent } = createAgentEventHarness();
+    const assistantMessage = {
+      role: "assistant",
+      content: [{ type: "text", text: "Current reply" }],
+    } as AssistantMessage;
+
+    emit({
+      type: "message_update",
+      message: assistantMessage,
+      assistantMessageEvent: { type: "text_delta", delta: "Current reply" },
+    });
+    emit({ type: "message_end", message: assistantMessage });
+
+    const payloads = extractAgentEventPayloads(onAgentEvent.mock.calls);
+    expect(payloads).toHaveLength(1);
+    expect(payloads[0]?.text).toBe("Current reply");
+  });
+
   it("does not emit duplicate agent events when message_end repeats", () => {
     const { emit, onAgentEvent } = createAgentEventHarness();
 

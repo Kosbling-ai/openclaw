@@ -48,7 +48,7 @@ function isTranscriptOnlyAssistantMessage(message: AgentMessage | undefined): bo
   );
 }
 
-function shouldIgnoreAssistantMessage(
+function shouldIgnoreAssistantMessageMetadata(
   ctx: EmbeddedPiSubscribeContext,
   message: AgentMessage | undefined,
 ): boolean {
@@ -62,6 +62,27 @@ function shouldIgnoreAssistantMessage(
     return true;
   }
   return isTranscriptOnlyAssistantMessage(message);
+}
+
+function shouldProcessObservedAssistantMessage(
+  ctx: EmbeddedPiSubscribeContext,
+  message: AgentMessage | undefined,
+): boolean {
+  if (shouldIgnoreAssistantMessageMetadata(ctx, message)) {
+    return false;
+  }
+  return ctx.state.currentRunAssistantMessages.has(message);
+}
+
+function markAssistantMessageObserved(
+  ctx: EmbeddedPiSubscribeContext,
+  message: AgentMessage | undefined,
+) {
+  if (shouldIgnoreAssistantMessageMetadata(ctx, message)) {
+    return false;
+  }
+  ctx.state.currentRunAssistantMessages.add(message);
+  return true;
 }
 
 function emitReasoningEnd(ctx: EmbeddedPiSubscribeContext) {
@@ -92,7 +113,7 @@ export function handleMessageStart(
   evt: AgentEvent & { message: AgentMessage },
 ) {
   const msg = evt.message;
-  if (shouldIgnoreAssistantMessage(ctx, msg)) {
+  if (!markAssistantMessageObserved(ctx, msg)) {
     return;
   }
 
@@ -111,7 +132,24 @@ export function handleMessageUpdate(
   evt: AgentEvent & { message: AgentMessage; assistantMessageEvent?: unknown },
 ) {
   const msg = evt.message;
-  if (shouldIgnoreAssistantMessage(ctx, msg)) {
+  const assistantEvent = evt.assistantMessageEvent;
+  const assistantRecord =
+    assistantEvent && typeof assistantEvent === "object"
+      ? (assistantEvent as Record<string, unknown>)
+      : undefined;
+  const evtType = typeof assistantRecord?.type === "string" ? assistantRecord.type : "";
+
+  if (
+    !ctx.state.currentRunAssistantMessages.has(msg) &&
+    (evtType === "text_start" ||
+      evtType === "text_delta" ||
+      evtType === "thinking_start" ||
+      evtType === "thinking_delta")
+  ) {
+    markAssistantMessageObserved(ctx, msg);
+  }
+
+  if (!shouldProcessObservedAssistantMessage(ctx, msg)) {
     return;
   }
 
@@ -119,13 +157,6 @@ export function handleMessageUpdate(
   if (ctx.state.deterministicApprovalPromptSent) {
     return;
   }
-
-  const assistantEvent = evt.assistantMessageEvent;
-  const assistantRecord =
-    assistantEvent && typeof assistantEvent === "object"
-      ? (assistantEvent as Record<string, unknown>)
-      : undefined;
-  const evtType = typeof assistantRecord?.type === "string" ? assistantRecord.type : "";
 
   if (evtType === "thinking_start" || evtType === "thinking_delta" || evtType === "thinking_end") {
     if (evtType === "thinking_start" || evtType === "thinking_delta") {
@@ -288,7 +319,7 @@ export function handleMessageEnd(
   evt: AgentEvent & { message: AgentMessage },
 ) {
   const msg = evt.message;
-  if (shouldIgnoreAssistantMessage(ctx, msg)) {
+  if (!shouldProcessObservedAssistantMessage(ctx, msg)) {
     return;
   }
 

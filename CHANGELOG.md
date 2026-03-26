@@ -15,6 +15,7 @@ Docs: https://docs.openclaw.ai
 - Web UI: restored a visible `Kosbling Edition` badge in the control dashboard sidebar after the upstream shell refresh.
 - Feishu groups: stopped replaying historical assistant finals on new embedded-session runs, preventing repeated outbound replies while still suppressing transcript-only internal assistant messages.
 - Feishu groups: added a runner-level safeguard that scopes outbound assistant payloads to the current turn's newly appended messages, so replayed historical finals cannot leak through cloned session events.
+- Feishu groups: fixed back-to-back embedded runs in the same session so a late assistant `message_end` from the previous turn cannot be misattributed to the next run and sent again as a duplicate reply.
 
 ## Model Isolation Timeline
 

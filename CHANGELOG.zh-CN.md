@@ -15,6 +15,7 @@
 - Web UI：在上游新版控制台壳层更新后，恢复侧边栏中的 `Kosbling Edition` 可见标识。
 - Feishu 群聊：停止在新的 embedded-session run 中重放历史 assistant final，避免重复外发，同时继续屏蔽 transcript-only 的内部 assistant 消息。
 - Feishu 群聊：新增 runner 层兜底，只允许当前 turn 新增消息窗口内的 assistant 内容进入外发 payload，避免历史 final 通过 clone/replay 事件再次泄漏。
+- Feishu 群聊：修复同一 session 连续追问时的串轮问题，上一轮 assistant 的晚到 `message_end` 不会再被误归属到下一轮 run 并重复外发。
 
 ## Model 隔离演进时间线
 

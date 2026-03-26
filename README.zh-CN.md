@@ -78,6 +78,10 @@
   - 当订阅一个已有 embedded session 时，`session.messages` 中已经存在的历史 assistant 消息可能重新进入对外投递链路，表现得像重复回复。
   - 修复：在 embedded subscribe 处理中忽略 preexisting assistant 消息，同时保持新的 assistant 回复继续正常外发。
   - 已提交官方 PR：[openclaw/openclaw#50176](https://github.com/openclaw/openclaw/pull/50176)
+- **`[上游]` 同一 embedded session 连续 Feishu 追问时，上一轮晚到的 assistant final 可能被误算进下一轮**（`src/agents/pi-embedded-subscribe.handlers.messages.ts` + tests）
+  - 当用户在群里紧接着上一条 assistant 回复继续追问时，上一轮 run 的晚到 `message_end` 可能出现在下一轮 run 已经建立订阅之后。
+  - 结果：下一轮会把这条上一轮的 assistant final 当成自己刚观察到的新回复，再次外发到 Feishu，表现成重复消息。
+  - 修复：embedded subscribe 现在只接受当前 run 真正观察到 `message_start` 或实时 text delta 的 assistant 消息，上一轮晚到 final 会被忽略，不再重复发送。
 - **`[上游]` provider 瞬态 INTERNAL 错误按可重试 timeout 分类**（`src/agents/pi-embedded-helpers/failover-matches.ts`）
   - `got status: INTERNAL` 和 `{"status":"INTERNAL","code":500}` 这类返回会归类为可重试的 timeout 风格 failover 错误。
   - 已提交官方 PR：[openclaw/openclaw#50148](https://github.com/openclaw/openclaw/pull/50148)

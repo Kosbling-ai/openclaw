@@ -38,6 +38,7 @@ export function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSessionPar
   const state: EmbeddedPiSubscribeState = {
     assistantTexts: [],
     preexistingMessages: new Set(params.session.messages ?? []),
+    currentRunAssistantMessages: new Set(),
     toolMetas: [],
     toolMetaById: new Map(),
     toolSummaryById: new Set(),
