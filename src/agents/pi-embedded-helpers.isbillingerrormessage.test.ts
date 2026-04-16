@@ -889,6 +889,14 @@ describe("classifyFailoverReason", () => {
     ).toBe("timeout");
   });
 
+  it("does not classify google-style INTERNAL payloads without a 500 code as timeout", () => {
+    const sample =
+      'got status: INTERNAL. {"error":{"code":400,"message":"Request malformed","status":"INTERNAL"}}';
+    expect(isTimeoutErrorMessage(sample)).toBe(false);
+    expect(classifyFailoverReason(sample)).toBeNull();
+    expect(isFailoverErrorMessage(sample)).toBe(false);
+  });
+
   it("does not classify plain status text with internal server error wording as timeout", () => {
     expect(classifyFailoverReason("Proxy notice: Status: Internal Server Error")).toBeNull();
   });
